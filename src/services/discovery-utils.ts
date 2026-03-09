@@ -19,7 +19,7 @@ export function buildFeedRankingParams(baseParams = {}) {
         ranking_model: 'coalition_social_v1',
     };
 }
-a
+
 export function getFeedInterestsFromOnboarding(onboardingPayload, fallback = ['Mutual Aid', 'Community Safety']) {
     const interests = onboardingPayload?.interests;
     if (Array.isArray(interests) && interests.length > 0) {
