@@ -1,10 +1,23 @@
 export type LocationPrecisionMode = 'precise' | 'approximate' | 'off';
+export type LocationConsentStatus = 'granted' | 'declined';
+
+export const LOCATION_CONSENT_POLICY_TEXT_ID = 'privacy-location-v1';
 
 export interface LocationConsentSettings {
     granted: boolean;
     precision: LocationPrecisionMode;
+    status: LocationConsentStatus;
+    policyTextId: string;
     updatedAt: string;
 }
+
+export const DEFAULT_LOCATION_CONSENT: LocationConsentSettings = {
+    granted: false,
+    precision: 'off',
+    status: 'declined',
+    policyTextId: LOCATION_CONSENT_POLICY_TEXT_ID,
+    updatedAt: new Date(0).toISOString(),
+};
 
 export const toApproximateCoordinate = (value: number, precision = 2): number => {
     const factor = 10 ** precision;
@@ -17,11 +30,32 @@ export const toApproximateLocation = (coords: { latitude: number; longitude: num
     precision,
 });
 
-export const buildLocationConsent = (granted: boolean, precision: LocationPrecisionMode): LocationConsentSettings => ({
+export const buildLocationConsent = (
+    granted: boolean,
+    precision: LocationPrecisionMode,
+    policyTextId = LOCATION_CONSENT_POLICY_TEXT_ID
+): LocationConsentSettings => ({
     granted,
     precision,
+    status: granted ? 'granted' : 'declined',
+    policyTextId,
     updatedAt: new Date().toISOString(),
 });
+
+export const transitionLocationConsent = (previous: LocationConsentSettings, next: Partial<LocationConsentSettings> = {}): LocationConsentSettings => {
+    const granted = next.granted ?? previous.granted;
+    const precision = next.precision ?? previous.precision;
+
+    return {
+        ...previous,
+        ...next,
+        granted,
+        precision,
+        status: granted ? 'granted' : 'declined',
+        policyTextId: next.policyTextId ?? previous.policyTextId ?? LOCATION_CONSENT_POLICY_TEXT_ID,
+        updatedAt: new Date().toISOString(),
+    };
+};
 
 export const fuzzLocationWithinRadiusMiles = (coords: { latitude: number; longitude: number }, miles = 0.2) => {
     const radiusMeters = miles * 1609.344;
