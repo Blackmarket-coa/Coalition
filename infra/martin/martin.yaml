@@ -1,0 +1,90 @@
+# Martin configuration for Railway + Medusa Postgres
+# Docs: https://maplibre.org/martin/
+
+listen_addresses: "0.0.0.0:3000"
+worker_processes: 4
+
+# Optional cache settings
+cache_size_mb: 1024
+preferred_encoding: gzip
+
+postgres:
+  # Railway should inject DATABASE_URL in format:
+  # postgresql://user:pass@host:port/dbname
+  connection_string: ${DATABASE_URL}
+
+  # Auto-detect bounds for auto-published sources
+  auto_bounds: skip
+
+  # Only publish data from these schemas
+  schemas:
+    - public
+    - osm
+
+  # Expose only the listed tables/views as tile sources
+  tables:
+    # OSM layers imported by osm2pgsql flex output
+    osm_point:
+      schema: osm
+      table: osm_point
+      geometry_column: geom
+      srid: 3857
+      minzoom: 12
+      maxzoom: 22
+
+    osm_line:
+      schema: osm
+      table: osm_line
+      geometry_column: geom
+      srid: 3857
+      minzoom: 8
+      maxzoom: 22
+
+    osm_polygon:
+      schema: osm
+      table: osm_polygon
+      geometry_column: geom
+      srid: 3857
+      minzoom: 6
+      maxzoom: 22
+
+    osm_roads:
+      schema: osm
+      table: osm_roads
+      geometry_column: geom
+      srid: 3857
+      minzoom: 6
+      maxzoom: 22
+
+    # Medusa application layers (replace geometry column names if different)
+    vendor_locations:
+      schema: public
+      table: vendor_locations
+      geometry_column: geom
+      srid: 4326
+      minzoom: 10
+      maxzoom: 22
+
+    garden_plots:
+      schema: public
+      table: garden_plots
+      geometry_column: geom
+      srid: 4326
+      minzoom: 12
+      maxzoom: 22
+
+    delivery_zones:
+      schema: public
+      table: delivery_zones
+      geometry_column: geom
+      srid: 4326
+      minzoom: 8
+      maxzoom: 22
+
+# Optional custom SQL tile functions (if you create ST_AsMVT funcs later)
+# functions:
+#   delivery_heatmap:
+#     schema: public
+#     function: delivery_heatmap
+#     minzoom: 5
+#     maxzoom: 14
