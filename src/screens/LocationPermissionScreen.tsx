@@ -7,6 +7,8 @@ import { Button, Text, YStack, Image, XStack, AlertDialog } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import { requestWebGeolocationPermission } from '../utils/location';
+import useStorage from '../hooks/use-storage';
+import { buildLocationConsent } from '../utils/location-consent';
 import { useLanguage } from '../contexts/LanguageContext';
 import useDimensions from '../hooks/use-dimensions';
 
@@ -18,16 +20,18 @@ const LocationPermissionScreen: React.FC = () => {
 
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'retry' | 'settings'>('retry');
+    const [, setLocationConsent] = useStorage('LOCATION_CONSENT_SETTINGS', { granted: false, precision: 'off', updatedAt: null });
 
     // Navigate to Boot, passing whether location is enabled
     const finish = useCallback(
-        (granted: boolean) => {
+        (granted: boolean, precision: 'precise' | 'approximate' | 'off' = granted ? 'precise' : 'off') => {
+            setLocationConsent(buildLocationConsent(granted, precision));
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'Boot', params: { locationEnabled: granted } }],
             });
         },
-        [navigation]
+        [navigation, setLocationConsent]
     );
 
     // Open app settings
@@ -51,26 +55,30 @@ const LocationPermissionScreen: React.FC = () => {
     );
 
     // Request permission and decide dialog mode
-    const requestLocationPermission = useCallback(async () => {
-        if (Platform.OS === 'web') {
-            const granted = await requestWebGeolocationPermission();
-            return finish(granted);
-        }
+    const requestLocationPermission = useCallback(
+        async (mode: 'precise' | 'approximate' = 'precise') => {
+            if (Platform.OS === 'web') {
+                const granted = await requestWebGeolocationPermission();
+                return finish(granted, granted ? mode : 'off');
+            }
 
-        const perm = Platform.OS === 'ios' ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+            const perm =
+                Platform.OS === 'ios' ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE : mode === 'approximate' ? PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
 
-        const status = await request(perm);
-        if (status === RESULTS.GRANTED) {
-            return finish(true);
-        }
+            const status = await request(perm);
+            if (status === RESULTS.GRANTED) {
+                return finish(true, mode);
+            }
 
-        if (status === RESULTS.DENIED) {
-            setDialogMode('retry');
-        } else {
-            setDialogMode('settings');
-        }
-        setDialogOpen(true);
-    }, [finish]);
+            if (status === RESULTS.DENIED) {
+                setDialogMode('retry');
+            } else {
+                setDialogMode('settings');
+            }
+            setDialogOpen(true);
+        },
+        [finish]
+    );
 
     return (
         <YStack flex={1} bg='$background' pt={insets.top} pb={insets.bottom} alignItems='center' justifyContent='center' padding='$6'>
@@ -85,11 +93,15 @@ const LocationPermissionScreen: React.FC = () => {
                 {t('LocationPermissionScreen.enableLocationPrompt')}
             </Text>
 
-            <Button size='$5' bg='$primary' color='$white' width='100%' onPress={requestLocationPermission} icon={<FontAwesomeIcon icon={faMapMarkerAlt} color='white' />}>
+            <Button size='$5' bg='$primary' color='$white' width='100%' onPress={() => requestLocationPermission('precise')} icon={<FontAwesomeIcon icon={faMapMarkerAlt} color='white' />}>
                 <Button.Text color='$white'>{t('LocationPermissionScreen.shareAndContinue')}</Button.Text>
             </Button>
 
-            <Button size='$5' variant='ghost' mt='$3' onPress={() => finish(false)}>
+            <Button size='$5' variant='outlined' mt='$3' width='100%' onPress={() => requestLocationPermission('approximate')}>
+                <Button.Text color='$textPrimary'>{t('LocationPermissionScreen.shareApproximate')}</Button.Text>
+            </Button>
+
+            <Button size='$5' variant='ghost' mt='$3' onPress={() => finish(false, 'off')}>
                 <Button.Text color='$textSecondary'>{t('LocationPermissionScreen.skipForNow')}</Button.Text>
             </Button>
 
