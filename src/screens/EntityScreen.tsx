@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { Image, Text, YStack, XStack, Separator, useTheme } from 'tamagui';
 import { titleize } from 'inflected';
-import { SectionHeader, SectionInfoLine } from '../components/Content';
+import { SectionHeader, SectionInfoLine } from '@blackstar/ui/src/components/Content';
 
 const EntityScreen = ({ route }) => {
     const theme = useTheme();

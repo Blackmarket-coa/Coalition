@@ -1,0 +1,8 @@
+{
+  "name": "@blackstar/web",
+  "private": true,
+  "scripts": {
+    "dev": "webpack serve --config ../../webpack.config.js",
+    "build": "webpack --config ../../webpack.config.js"
+  }
+}

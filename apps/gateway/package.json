@@ -1,0 +1,12 @@
+{
+  "name": "@blackstar/gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "hono": "^4.6.10"
+  }
+}
