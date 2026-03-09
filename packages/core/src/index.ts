@@ -7,3 +7,5 @@ export * from './contexts/ThemeContext';
 export * from './contexts/ConfigContext';
 
 export * from './contexts/LocationConsentContext';
+
+export * from './contexts/MatrixContext';
