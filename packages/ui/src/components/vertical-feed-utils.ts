@@ -4,6 +4,7 @@ export type FeedEvent = {
     sender: string;
     visibility?: 'public' | 'private' | 'blocked';
     content: {
+        action_hint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
         url: string;
         room_id?: string;
         body?: string;
@@ -32,6 +33,7 @@ export type FeedItem = {
     visibility: 'public' | 'private' | 'blocked';
     trustScore: number;
     reportCount: number;
+    actionHint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
 };
 
 export type FeedRequestParams = {
@@ -82,6 +84,7 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         visibility: event.visibility ?? 'public',
         trustScore: Number(event.content?.trust_score ?? 50),
         reportCount: Number(event.content?.report_count ?? 0),
+        actionHint: event.content?.action_hint,
     };
 }
 
