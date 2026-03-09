@@ -1,5 +1,17 @@
 import Medusa from '@medusajs/js-sdk';
-import type { EntityType, MedusaGarden, MedusaKitchen, MedusaProducer, MedusaProduct, MedusaSeller } from '../lib/types';
+import type {
+    EntityType,
+    MedusaGarden,
+    MedusaGardenListResponse,
+    MedusaKitchen,
+    MedusaKitchenListResponse,
+    MedusaProducer,
+    MedusaProducerListResponse,
+    MedusaProduct,
+    MedusaProductListResponse,
+    MedusaSeller,
+    MedusaSellerListResponse,
+} from '../lib/types';
 
 interface MedusaClientLike {
     client: {
@@ -49,42 +61,48 @@ export class MedusaSpatialService {
     }
 
     private listSellers = async (limit: number, offset: number): Promise<MedusaSeller[]> => {
-        const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const res = await this.medusa.client.fetch<unknown>(`/admin/sellers?${query.toString()}`);
+        const query = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: '+store_name,+handle,+description' });
+        const res = await this.medusa.client.fetch<MedusaSellerListResponse>(`/admin/sellers?${query.toString()}`);
         return toArray<MedusaSeller>(res);
     };
 
     private listProducts = async (limit: number, offset: number): Promise<MedusaProduct[]> => {
-        const query = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: '+variants,+variants.inventory_quantity,+variants.calculated_price' });
-        const res = await this.medusa.client.fetch<unknown>(`/store/products?${query.toString()}`);
+        const query = new URLSearchParams({
+            limit: String(limit),
+            offset: String(offset),
+            fields: '+variants,+variants.inventory_quantity,+variants.calculated_price',
+        });
+        const res = await this.medusa.client.fetch<MedusaProductListResponse>(`/store/products?${query.toString()}`);
         return toArray<MedusaProduct>(res);
     };
 
     private listGardens = async (limit: number, offset: number): Promise<MedusaGarden[]> => {
         const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const res = await this.medusa.client.fetch<unknown>(`/admin/gardens?${query.toString()}`);
+        const res = await this.medusa.client.fetch<MedusaGardenListResponse>(`/admin/gardens?${query.toString()}`);
         return toArray<MedusaGarden>(res);
     };
 
     private listKitchens = async (limit: number, offset: number): Promise<MedusaKitchen[]> => {
         const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const res = await this.medusa.client.fetch<unknown>(`/admin/kitchens?${query.toString()}`);
+        const res = await this.medusa.client.fetch<MedusaKitchenListResponse>(`/admin/kitchens?${query.toString()}`);
         return toArray<MedusaKitchen>(res);
     };
 
     private listProducers = async (limit: number, offset: number): Promise<MedusaProducer[]> => {
         const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const res = await this.medusa.client.fetch<unknown>(`/admin/producers?${query.toString()}`);
+        const res = await this.medusa.client.fetch<MedusaProducerListResponse>(`/admin/producers?${query.toString()}`);
         return toArray<MedusaProducer>(res);
     };
 
-    public async getEntities(limit: number, offset: number): Promise<SpatialEntityRecord[]> {
+    public async getEntities(entityTypes: EntityType[], limit: number, offset: number): Promise<SpatialEntityRecord[]> {
+        const include = new Set(entityTypes);
+
         const [sellers, products, gardens, kitchens, producers] = await Promise.all([
-            this.listSellers(limit, offset),
-            this.listProducts(limit, offset),
-            this.listGardens(limit, offset),
-            this.listKitchens(limit, offset),
-            this.listProducers(limit, offset),
+            include.has('seller') ? this.listSellers(limit, offset) : Promise.resolve([]),
+            include.has('product') ? this.listProducts(limit, offset) : Promise.resolve([]),
+            include.has('garden') ? this.listGardens(limit, offset) : Promise.resolve([]),
+            include.has('kitchen') ? this.listKitchens(limit, offset) : Promise.resolve([]),
+            include.has('producer') ? this.listProducers(limit, offset) : Promise.resolve([]),
         ]);
 
         return [
@@ -99,17 +117,25 @@ export class MedusaSpatialService {
                 icon: 'market-seller',
                 layer: 'market' as const,
             })),
-            ...products.map((product) => ({
-                entityType: 'product' as const,
-                id: product.id,
-                name: product.title ?? product.handle ?? product.id,
-                status: product.status ?? 'published',
-                imageUrl: product.thumbnail ?? null,
-                tagline: product.description ?? null,
-                rating: product.rating ?? null,
-                icon: 'market-product',
-                layer: 'market' as const,
-            })),
+            ...products.map((product) => {
+                const totalInventory = (product.variants ?? []).reduce((sum, variant) => sum + (variant.inventory_quantity ?? 0), 0);
+                const firstPrice = product.variants?.find((variant) => variant.calculated_price?.calculated_amount != null)?.calculated_price;
+                const pricingLabel = firstPrice?.calculated_amount != null
+                    ? `${firstPrice.calculated_amount / 100} ${firstPrice.currency_code?.toUpperCase() ?? ''}`.trim()
+                    : null;
+
+                return {
+                    entityType: 'product' as const,
+                    id: product.id,
+                    name: product.title ?? product.handle ?? product.id,
+                    status: product.status ?? 'published',
+                    imageUrl: product.thumbnail ?? null,
+                    tagline: pricingLabel ? `From ${pricingLabel} • ${totalInventory} in stock` : product.description ?? null,
+                    rating: product.rating ?? null,
+                    icon: 'market-product',
+                    layer: 'market' as const,
+                };
+            }),
             ...gardens.map((garden) => ({
                 entityType: 'garden' as const,
                 id: garden.id,

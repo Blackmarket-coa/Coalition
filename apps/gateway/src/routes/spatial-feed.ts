@@ -95,7 +95,7 @@ export const createSpatialFeedRouter = () => {
 
             const entityTypes = [...new Set(query.layers.flatMap((layer) => layerToEntityTypes[layer]))];
             const [entities, locations] = await Promise.all([
-                medusa.getEntities(query.limit, query.offset),
+                medusa.getEntities(entityTypes, query.limit, query.offset),
                 spatialRepo.getLocationsInBbox(entityTypes, query.bbox, query.limit, query.offset),
             ]);
 
