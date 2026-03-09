@@ -61,3 +61,6 @@ If your target is the redesign described (general-user-first IA + center-feed + 
 3. Add explicit consent-policy copy and a robust privacy settings surface linked from profile.
 4. Define and track a cross-repo contract matrix (API + events + room schemas) to verify parity with the listed repositories.
 5. Add integration tests for feed-room-comment behavior and location consent degradation paths.
+
+## Follow-up execution plan
+A detailed implementation work order with AI prompts is available in `docs/COALITION_ALIGNMENT_WORK_ORDER.md`.
