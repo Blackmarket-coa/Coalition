@@ -4,7 +4,7 @@ import BackgroundFetch from 'react-native-background-fetch';
 import { Place, Point } from '@fleetbase/sdk';
 import { isEmpty, config } from '../utils';
 import useLocationConsent from '../hooks/use-location-consent';
-import { toApproximateLocation } from '../utils/location-consent';
+import { toApproximateLocation, fuzzLocationWithinRadiusMiles } from '../utils/location-consent';
 import { useAuth } from './AuthContext';
 import useStorage from '../hooks/use-storage';
 import useFleetbase from '../hooks/use-fleetbase';
@@ -31,7 +31,8 @@ export const LocationProvider = ({ children }) => {
             }
 
             if (locationConsent?.precision === 'approximate') {
-                return { ...coords, ...toApproximateLocation({ latitude: coords.latitude, longitude: coords.longitude }) };
+                const approximate = toApproximateLocation({ latitude: coords.latitude, longitude: coords.longitude });
+                return { ...coords, ...approximate, ...fuzzLocationWithinRadiusMiles(approximate, 0.2) };
             }
 
             return coords;

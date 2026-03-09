@@ -9,6 +9,7 @@ import {
     faClipboardList,
     faUser,
     faTimes,
+    faPlusCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme, Text, View, XStack, Image } from 'tamagui';
 import { navigatorConfig, get, config, toArray, getTheme } from '../utils';
@@ -28,6 +29,7 @@ import CreateChatChannelScreen from '../screens/CreateChatChannelScreen';
 import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverAccountScreen from '../screens/DriverAccountScreen';
 import ProviderOnboardingScreen from '../screens/ProviderOnboardingScreen';
+import PostTabScreen from '../screens/PostTabScreen';
 import { useOrderManager } from '@blackstar/core/src/contexts/OrderManagerContext';
 import { useChat } from '@blackstar/core/src/contexts/ChatContext';
 import useAppTheme from '../hooks/use-app-theme';
@@ -43,6 +45,7 @@ const importedIconsMap = {
     faWalkieTalkie,
     faClipboardList,
     faUser,
+    faPlusCircle,
 };
 
 function getTabConfig(name, key, defaultValue = null) {
@@ -56,7 +59,7 @@ function getTabConfig(name, key, defaultValue = null) {
 }
 
 function createTabScreens() {
-    const tabs = toArray(navigatorConfig('driverNavigator.tabs', 'DriverTaskTab,DriverChatTab,DriverAccountTab'));
+    const tabs = toArray(navigatorConfig('driverNavigator.tabs', 'DriverTaskTab,DriverChatTab,DriverPostTab,DriverAccountTab'));
     const screens = {
         DriverTaskTab: {
             screen: DriverTaskTab,
@@ -96,6 +99,14 @@ function createTabScreens() {
                 };
             },
         },
+        DriverPostTab: {
+            screen: DriverPostTab,
+            options: () => {
+                return {
+                    tabBarLabel: config('DRIVER_POST_TAB_LABEL', 'Post'),
+                };
+            },
+        },
     };
 
     const screenTabs = {};
@@ -126,6 +137,9 @@ function getDefaultTabIcon(routeName) {
             break;
         case 'DriverAccountTab':
             icon = faUser;
+            break;
+        case 'DriverPostTab':
+            icon = faPlusCircle;
             break;
     }
 
@@ -268,6 +282,19 @@ const DriverChatTab = createNativeStackNavigator({
                     presentation: 'modal',
                 };
             },
+        },
+    },
+});
+
+
+const DriverPostTab = createNativeStackNavigator({
+    initialRouteName: 'PostTab',
+    screens: {
+        PostTab: {
+            screen: PostTabScreen,
+            options: () => ({
+                headerShown: false,
+            }),
         },
     },
 });

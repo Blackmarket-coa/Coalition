@@ -9,7 +9,7 @@ import { SpatialRepository } from '../services/spatial-repository';
 const allowedLayers = ['market', 'jobs', 'govern', 'aid'] as const;
 const querySchema = z.object({
     bbox: z.string().min(1),
-    layers: z.string().default('market,aid'),
+    layers: z.string().default('market,jobs,govern,aid'),
     limit: z.coerce.number().int().min(1).max(500).default(100),
     offset: z.coerce.number().int().min(0).default(0),
 });
@@ -36,7 +36,7 @@ const parseLayers = (raw: string): SpatialLayer[] => {
 
     const unique = [...new Set(requested)] as string[];
     const valid = unique.filter((layer): layer is SpatialLayer => (allowedLayers as readonly string[]).includes(layer));
-    return valid.length > 0 ? valid : ['market', 'aid'];
+    return valid.length > 0 ? valid : ['market', 'jobs', 'govern', 'aid'];
 };
 
 const layerToEntityTypes: Record<SpatialLayer, EntityType[]> = {
@@ -94,8 +94,13 @@ export const createSpatialFeedRouter = () => {
             }
 
             const entityTypes = [...new Set(query.layers.flatMap((layer) => layerToEntityTypes[layer]))];
+            if (entityTypes.length === 0) {
+                const emptyPayload = toFeatureCollection([]);
+                return c.json(emptyPayload, 200);
+            }
+
             const [entities, locations] = await Promise.all([
-                medusa.getEntities(query.limit, query.offset),
+                medusa.getEntities(entityTypes, query.limit, query.offset),
                 spatialRepo.getLocationsInBbox(entityTypes, query.bbox, query.limit, query.offset),
             ]);
 
