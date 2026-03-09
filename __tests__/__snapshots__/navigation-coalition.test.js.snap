@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Coalition navigator tab layout tab order snapshot 1`] = `
+[
+  "Home",
+  "Feed",
+  "Explore",
+  "Messages",
+  "You",
+]
+`;
