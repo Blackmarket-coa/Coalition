@@ -41,6 +41,8 @@ interface MapCanvasProps {
     features: GeoJSONFeatureCollection;
     onEntitySelect: (feature: GeoJSONPointFeature) => void;
     locationPermissionGranted?: boolean;
+    isLocationAvailable?: boolean;
+    locationUnavailableMessage?: string;
     initialZoom?: number;
     initialCenter?: [number, number];
     style?: object;
@@ -68,7 +70,16 @@ const createMapStyle = (tileUrl: string) => ({
 });
 
 export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCanvas(
-    { features, onEntitySelect, locationPermissionGranted = false, initialZoom = 11, initialCenter = [-121.4944, 38.5816], style },
+    {
+        features,
+        onEntitySelect,
+        locationPermissionGranted = false,
+        isLocationAvailable = true,
+        locationUnavailableMessage = 'Location access is off. Enable approximate location to view nearby markers.',
+        initialZoom = 11,
+        initialCenter = [-121.4944, 38.5816],
+        style,
+    },
     ref
 ) {
     const tileUrl = useMemo(() => getMartinTileUrl(), []);
@@ -241,6 +252,15 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
         };
     }, [features, initialCenter, initialZoom, mapStyle, onEntitySelect]);
 
+    if (!isLocationAvailable) {
+        return (
+            <YStack position='relative' style={style} justifyContent='center' alignItems='center' bg='$background'>
+                <Text textAlign='center' color='$color11' maxWidth={280}>
+                    {locationUnavailableMessage}
+                </Text>
+            </YStack>
+        );
+    }
     if (Platform.OS === 'web') {
         return (
             <YStack position='relative' style={style}>

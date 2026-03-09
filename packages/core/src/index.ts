@@ -5,3 +5,5 @@ export * from './contexts/OrderManagerContext';
 export * from './contexts/SocketClusterContext.native';
 export * from './contexts/ThemeContext';
 export * from './contexts/ConfigContext';
+
+export * from './contexts/LocationConsentContext';

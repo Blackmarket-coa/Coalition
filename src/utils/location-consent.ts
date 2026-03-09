@@ -22,3 +22,18 @@ export const buildLocationConsent = (granted: boolean, precision: LocationPrecis
     precision,
     updatedAt: new Date().toISOString(),
 });
+
+export const fuzzLocationWithinRadiusMiles = (coords: { latitude: number; longitude: number }, miles = 0.2) => {
+    const radiusMeters = miles * 1609.344;
+    const randomDistance = Math.random() * radiusMeters;
+    const randomBearing = Math.random() * Math.PI * 2;
+
+    const deltaLat = (randomDistance * Math.cos(randomBearing)) / 111_320;
+    const deltaLng = (randomDistance * Math.sin(randomBearing)) / (111_320 * Math.max(Math.cos((coords.latitude * Math.PI) / 180), 0.01));
+
+    return {
+        latitude: coords.latitude + deltaLat,
+        longitude: coords.longitude + deltaLng,
+        radius_miles: miles,
+    };
+};
