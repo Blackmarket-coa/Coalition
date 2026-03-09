@@ -5,14 +5,14 @@ export const LOCATION_TYPES = ['storefront', 'farm', 'kitchen', 'garden', 'mobil
 export type LocationType = (typeof LOCATION_TYPES)[number];
 
 /**
- * Coordinates are persisted in PostGIS `geometry(Point,4326)` through migration,
- * while app layer uses lng/lat primitives.
+ * NOTE:
+ * `coordinates` is represented as lng/lat in the module layer.
+ * Migration persists a PostGIS `geometry(Point, 4326)` column with same field name.
  */
 export const SellerLocation = model.define('seller_location', {
     id: model.id({ prefix: 'sloc' }).primaryKey(),
     seller_id: model.text().unique().index(),
-    latitude: model.number(),
-    longitude: model.number(),
+    coordinates: model.json(),
     address_line: model.text(),
     city: model.text(),
     state: model.text(),

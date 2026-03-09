@@ -8,8 +8,6 @@ export class Migration202603090001 extends Migration {
       CREATE TABLE IF NOT EXISTS "seller_location" (
         "id" text NOT NULL,
         "seller_id" text NOT NULL,
-        "longitude" double precision NOT NULL,
-        "latitude" double precision NOT NULL,
         "coordinates" geometry(Point,4326) NOT NULL,
         "address_line" text NOT NULL,
         "city" text NOT NULL,

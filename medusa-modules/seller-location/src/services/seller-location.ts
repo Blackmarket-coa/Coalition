@@ -1,10 +1,14 @@
 import { MedusaError, MedusaService } from '@medusajs/framework/utils';
 import SellerLocation, { type LocationType } from '../models/seller-location';
 
-type UpsertSellerLocationInput = {
-    seller_id: string;
+type Coordinates = {
     latitude: number;
     longitude: number;
+};
+
+type UpsertSellerLocationInput = {
+    seller_id: string;
+    coordinates: Coordinates;
     address_line: string;
     city: string;
     state: string;
@@ -25,7 +29,7 @@ type BBox = {
 type PublicLocationDTO = {
     id: string;
     seller_id: string;
-    coordinates: { longitude: number; latitude: number };
+    coordinates: Coordinates;
     address_line: string;
     city: string;
     state: string;
@@ -41,12 +45,12 @@ class SellerLocationModuleService extends MedusaService({ SellerLocation }) {
 
         if (existing) {
             const updated = await this.updateSellerLocations({ id: existing.id, ...input });
-            await this.persistPointGeometry(updated.id, input.longitude, input.latitude);
+            await this.persistPointGeometry(updated.id, input.coordinates.longitude, input.coordinates.latitude);
             return updated;
         }
 
         const created = await this.createSellerLocations(input);
-        await this.persistPointGeometry(created.id, input.longitude, input.latitude);
+        await this.persistPointGeometry(created.id, input.coordinates.longitude, input.coordinates.latitude);
         return created;
     }
 
@@ -65,23 +69,23 @@ class SellerLocationModuleService extends MedusaService({ SellerLocation }) {
 
         const rows = await manager.query(
             `
-        SELECT
-          id,
-          seller_id,
-          longitude,
-          latitude,
-          address_line,
-          city,
-          state,
-          zip,
-          country,
-          display_radius,
-          location_type
-        FROM seller_location
-        WHERE is_visible = true
-          AND coordinates IS NOT NULL
-          AND ST_Within(coordinates, ST_MakeEnvelope(?, ?, ?, ?, 4326))
-      `,
+                SELECT
+                    id,
+                    seller_id,
+                    ST_X(coordinates::geometry) AS longitude,
+                    ST_Y(coordinates::geometry) AS latitude,
+                    address_line,
+                    city,
+                    state,
+                    zip,
+                    country,
+                    display_radius,
+                    location_type
+                FROM seller_location
+                WHERE is_visible = true
+                  AND coordinates IS NOT NULL
+                  AND ST_Within(coordinates, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+            `,
             [bbox.west, bbox.south, bbox.east, bbox.north]
         );
 
@@ -108,18 +112,15 @@ class SellerLocationModuleService extends MedusaService({ SellerLocation }) {
 
         await manager.query(
             `
-        UPDATE seller_location
-        SET
-          longitude = ?,
-          latitude = ?,
-          coordinates = ST_SetSRID(ST_MakePoint(?, ?), 4326)
-        WHERE id = ?
-      `,
-            [longitude, latitude, longitude, latitude, id]
+                UPDATE seller_location
+                SET coordinates = ST_SetSRID(ST_MakePoint($1, $2), 4326)
+                WHERE id = $3
+            `,
+            [longitude, latitude, id]
         );
     }
 
-    private fuzzCoordinates(coordinates: { longitude: number; latitude: number }, displayRadiusMeters: number) {
+    private fuzzCoordinates(coordinates: Coordinates, displayRadiusMeters: number): Coordinates {
         if (!Number.isFinite(displayRadiusMeters) || displayRadiusMeters <= 0) {
             return coordinates;
         }
@@ -146,4 +147,4 @@ class SellerLocationModuleService extends MedusaService({ SellerLocation }) {
 }
 
 export default SellerLocationModuleService;
-export type { UpsertSellerLocationInput, PublicLocationDTO, BBox };
+export type { UpsertSellerLocationInput, PublicLocationDTO, BBox, Coordinates };
