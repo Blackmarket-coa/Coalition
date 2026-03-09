@@ -2,7 +2,7 @@
   <img src="assets/navigator-icon-transparent.png" width="140" height="140" />
 </p>
 <p align="center">
-Open source order management, geolocation tracking & navigation app tailored for Blackstar drivers & agents.
+Coalition is a social-first discovery and activation app for the Blackmarket ecosystem, with backward-compatible driver workflows for Blackstar operations.
 </p>
 
 <p align="center">
@@ -18,25 +18,44 @@ Open source order management, geolocation tracking & navigation app tailored for
 <p align="center">
 	<img src="https://github.com/user-attachments/assets/bfe5ca18-07c1-4188-be8e-277e5ebf7abc" width="220" height="416" />
 	<img src="https://github.com/user-attachments/assets/93e3ee4a-6add-4b82-ae93-ae6f5a217400" width="220" height="416" />
-	<img src="https://github.com/user-attachments/assets/f21c7514-9cfb-4c3e-bdc4-5254565c1b26" width="220" height="416" />>
+	<img src="https://github.com/user-attachments/assets/f21c7514-9cfb-4c3e-bdc4-5254565c1b26" width="220" height="416" />
 </p>
 
 ## Table of Contents
 
 - [About](#about)
+- [Current App Surfaces](#current-app-surfaces)
+- [Feature Flags (Rollout Controls)](#feature-flags-rollout-controls)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
     - [Configure Environment](#configure-environment)
 - [Running in Simulator](#running-in-simulator)
     - [Run the app in iOS Simulator](#run-the-app-in-ios-simulator)
     - [Run the app in Android Simulator](#run-the-app-in-android-simulator)
-- [Navigation using Mapbox](#navigation-using-mapbox)
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
 
 ### About
 
-Blackstar Navigator is an open source navigation and order management app for drivers and agents. This app is fully customizable and supports QR code scanning, digital signatures, photos, and routing and navigation for agents. Drivers can update activity to orders on the run as they complete jobs. The app includes fuel report and issue management, plus built-in chat with operations personnel and customers.
+Coalition is the social discovery + trust + activation layer for the Blackmarket ecosystem. The app now supports a social-first experience (Home, Feed, Explore, Messages, You) while preserving role-aware Blackstar driver flows behind feature flags and route gates.
+
+### Current App Surfaces
+
+- **Social-first Coalition shell** with onboarding, vertical feed, discovery map, messages, and profile.
+- **Driver-compatible routes** retained for order-management and legacy role workflows.
+- **Action routing layer** for ecosystem actions like marketplace, jobs, aid, governance, and room-based messaging.
+- **Consent-first privacy controls** including approximate/precise/off location modes and privacy settings.
+
+### Feature Flags (Rollout Controls)
+
+These environment flags control staged rollout and rollback behavior:
+
+- `COALITION_NAV_ENABLED` (default `true`): toggles Coalition social shell vs legacy Driver navigator.
+- `COALITION_ONBOARDING_ENABLED` (default `true`): toggles social onboarding flow.
+- `COALITION_FEED_RANKING_ENABLED` (default `true`): toggles ranked feed request model params.
+- `COALITION_ACTION_ROUTER_ENABLED` (default `true`): toggles unified ecosystem action routing (with safe fallbacks).
+
+See `docs/COALITION_SOCIAL_MIGRATION_ROLLOUT.md` for staged rollout and rollback playbook.
 
 ### Prerequisites
 
@@ -68,7 +87,7 @@ Below is the steps needed to configure the environment. The first part covers co
 3.  Once you're in the Blackstar gateway admin console, create an API key for the mobile app and copy the secret value.
 4.  Once you have the required API keys, open your `.env` file.
 
-In your `.env` file supply your API secret key, and additionally a ArcGIS API key. Lastly, set your app/bundle identifier and an `APP_NAME` key.
+In your `.env` file supply your API secret key, and additionally an ArcGIS API key. Lastly, set your app/bundle identifier and an `APP_NAME` key.
 
 Your `.env` file should look something like this once you're done.
 
@@ -82,6 +101,12 @@ BLACKSTAR_GATEWAY_KEY=
 BLACKSTAR_SOCKET_HOST=socket.blackmarket.coa
 BLACKSTAR_SOCKET_PORT=8000
 BLACKSTAR_SOCKET_SECURE=true
+
+# Coalition feature flags
+COALITION_NAV_ENABLED=true
+COALITION_ONBOARDING_ENABLED=true
+COALITION_FEED_RANKING_ENABLED=true
+COALITION_ACTION_ROUTER_ENABLED=true
 ```
 
 ### Running in Simulator
@@ -102,10 +127,12 @@ yarn android
 
 ### Documentation
 
-See the Blackstar internal documentation and API runbooks for environment-specific setup.
+- Coalition alignment work order: `docs/COALITION_ALIGNMENT_WORK_ORDER.md`
+- Coalition rollout playbook: `docs/COALITION_SOCIAL_MIGRATION_ROLLOUT.md`
+- Blackstar integration service docs and API runbooks are maintained with internal environment-specific setup notes.
 
 If you contribute to this app, keep feature parity aligned with the Blackstar gateway contracts and release checklist.
 
 ### Roadmap
 
-- COMING SOON
+- Ongoing: Coalition social-first migration hardening and metrics-driven rollout.
