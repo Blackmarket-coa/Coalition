@@ -1,0 +1,11 @@
+feature_name,in_blackstar,required_for_launch,status_in_this_repo,owner,target_release,notes
+Driver authentication,yes,yes,present,Mobile Team,v1.0,Validated against Blackstar auth flow
+Order lifecycle (accept/start/complete),yes,yes,present,Dispatch Team,v1.0,Validated on staging data set
+Route navigation and ETA,yes,yes,present,Mobile Team,v1.0,ETA + reroute states verified for launch checklist
+Proof of delivery (signature/photo),yes,yes,present,Ops Platform,v1.0,POD upload and signature capture verified
+Fuel reports,yes,yes,present,Fleet Ops,v1.1,No launch blocker
+Issue management,yes,yes,present,Fleet Ops,v1.1,No launch blocker
+In-app chat + notifications,yes,yes,present,Realtime Team,v1.0,Push and channel messaging validated
+Fleet/vehicle profile and status,yes,no,present,Fleet Ops,v1.2,Post-launch enhancement
+Instance linking via deep link,yes,yes,present,Platform Team,v1.0,Blackstar scheme + runtime config validated
+Blackstar gateway runtime config,yes,yes,present,Platform Team,v1.0,Env contract aligned with gateway
