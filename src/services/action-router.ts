@@ -1,5 +1,7 @@
 import { claimGatewayJob } from './blackstar-gateway';
 import { trackConversionEvent } from './conversion-analytics';
+import { logErrorCategory } from './error-logging';
+import { isCoalitionActionRouterEnabled } from './feature-flags';
 
 export type EcosystemActionType = 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
 
@@ -18,7 +20,22 @@ export interface ActionRouterContext {
     trackRecentBehavior?: (entry: string) => void;
 }
 
+
+function executeLegacyFallback(action: EcosystemAction, context: ActionRouterContext) {
+    if (action.type === 'SHOP_ITEM' || action.type === 'POST_OFFERING') {
+        context.navigate('Feed', { screen: 'PostTab' });
+        return { ok: true, module: 'legacy-fallback' };
+    }
+
+    context.onUnhandled?.(action, 'Action router disabled by feature flag');
+    return { ok: false, reason: 'ACTION_ROUTER_DISABLED' };
+}
+
 export async function executeEcosystemAction(action: EcosystemAction, context: ActionRouterContext) {
+    if (!isCoalitionActionRouterEnabled()) {
+        return executeLegacyFallback(action, context);
+    }
+
     try {
         switch (action.type) {
             case 'SHOP_ITEM':
@@ -66,6 +83,7 @@ export async function executeEcosystemAction(action: EcosystemAction, context: A
     } catch (error) {
         const reason = error instanceof Error ? error.message : 'Action execution failed';
         context.onUnhandled?.(action, reason);
+        logErrorCategory('action_router_error', reason, { action: action.type });
         trackConversionEvent('action_failed', { action: action.type, reason });
         return { ok: false, reason: 'ACTION_EXECUTION_FAILED' };
     }

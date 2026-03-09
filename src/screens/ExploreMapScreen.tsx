@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Text, XStack, YStack } from 'tamagui';
 import TestScreen from './TestScreen';
 import useLocationConsent from '../hooks/use-location-consent';
+import { shouldShowExploreFallback } from '../services/discovery-utils';
 
 const layers = ['marketplace', 'jobs', 'mutual aid', 'governance', 'infrastructure'];
 
@@ -14,7 +15,7 @@ const ExploreMapScreen = ({ navigation }) => {
         governance: true,
         infrastructure: true,
     });
-    const showFallback = locationConsent.precision === 'off' || !locationConsent.granted;
+    const showFallback = shouldShowExploreFallback(locationConsent);
 
     return (
         <YStack flex={1}>

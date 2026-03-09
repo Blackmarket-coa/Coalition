@@ -6,6 +6,10 @@ jest.mock('../src/services/conversion-analytics', () => ({
     trackConversionEvent: jest.fn(),
 }));
 
+jest.mock('../src/services/feature-flags', () => ({
+    isCoalitionActionRouterEnabled: jest.fn(() => true),
+}));
+
 import { executeEcosystemAction } from '../src/services/action-router';
 import { trackConversionEvent } from '../src/services/conversion-analytics';
 

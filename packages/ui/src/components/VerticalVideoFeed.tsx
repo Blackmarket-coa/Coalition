@@ -22,6 +22,8 @@ type VerticalVideoFeedProps = {
     onShare?: (item: FeedItem) => void;
     onTakeAction?: (item: FeedItem) => void;
     onReport?: (item: FeedItem) => void;
+    onErrorCategory?: (message: string, context?: Record<string, any>) => void;
+    onPerformanceSample?: (sample: { mediaStartLatencyMs: number; scrollFrameDrops: number }) => void;
 };
 
 const solarpunk = {
@@ -74,7 +76,7 @@ const CtaCard = ({ item, height, onOpenCta }: { item: RenderFeedItem; height: nu
     );
 };
 
-export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport }: VerticalVideoFeedProps) => {
+export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport, onErrorCategory, onPerformanceSample }: VerticalVideoFeedProps) => {
     const [items, setItems] = useState<FeedItem[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const [expandedCaptionId, setExpandedCaptionId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const lastTap = useRef<{ id: string; at: number } | null>(null);
+    const fetchStartedAtRef = useRef(Date.now());
     const burstScale = useSharedValue(0);
 
     const burstStyle = useAnimatedStyle(() => ({ transform: [{ scale: burstScale.value }], opacity: burstScale.value === 0 ? 0 : 1 }));
@@ -96,14 +99,17 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
         setIsLoading(true);
         setErrorMessage(null);
         try {
+            fetchStartedAtRef.current = Date.now();
             const response = await fetch(requestUrl);
             if (!response.ok) throw new Error(`Feed request failed (${response.status})`);
             const payload = await response.json();
             const events = (payload?.videos ?? payload?.events ?? []) as FeedEvent[];
             const nextItems = events.filter((event) => Boolean(event?.content?.url)).map(toFeedItem);
             setItems(filterVisibleFeedItems(nextItems));
+            onPerformanceSample?.({ mediaStartLatencyMs: Date.now() - fetchStartedAtRef.current, scrollFrameDrops: 0 });
         } catch (error) {
             setErrorMessage('Unable to load feed right now.');
+            onErrorCategory?.('Unable to fetch video feed', { error: String(error) });
             console.warn('Unable to fetch video feed:', error);
         } finally {
             setIsLoading(false);

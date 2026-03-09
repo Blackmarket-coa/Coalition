@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Alert, ScrollView } from 'react-native';
 import { Button, Text, XStack, YStack } from 'tamagui';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,8 @@ import useStorage from '../hooks/use-storage';
 import { loadOnboardingPayload } from '../services/onboarding';
 import { executeEcosystemAction } from '../services/action-router';
 import { createHomeRecommendations } from '../services/home-recommendations';
-import { trackConversionEvent } from '../services/conversion-analytics';
+import { buildFunnelDashboardPayload, trackConversionEvent } from '../services/conversion-analytics';
+import { shouldShowNearbyRail } from '../services/discovery-utils';
 
 const RECENT_BEHAVIOR_KEY = 'coalition_recent_behavior';
 
@@ -35,12 +36,21 @@ const HomeRecommendationsScreen = ({ navigation }) => {
         [onboardingPayload, locationConsent, recentBehavior]
     );
 
+
+    useEffect(() => {
+        trackConversionEvent('discovery_viewed', { screen: 'home' });
+        const payload = buildFunnelDashboardPayload(String(driver?.id ?? 'anon'), 'session-home', [
+            { step: 'home_viewed', ts: new Date().toISOString(), status: 'viewed' },
+        ]);
+        console.log('[funnel]', payload);
+    }, [driver]);
+
     const trackRecentBehavior = (entry: string) => {
         const next = [entry, ...(recentBehavior ?? [])].slice(0, 20);
         setRecentBehavior(next);
     };
 
-    const showNearbyRail = locationConsent.granted && locationConsent.precision !== 'off';
+    const showNearbyRail = shouldShowNearbyRail(locationConsent);
 
     return (
         <YStack flex={1} p='$5' space='$3'>

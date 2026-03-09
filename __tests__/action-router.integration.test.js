@@ -2,6 +2,10 @@ jest.mock('../src/services/blackstar-gateway', () => ({
     claimGatewayJob: jest.fn(async (jobId, providerId) => ({ id: `claim_${jobId}`, jobId, providerId })),
 }));
 
+jest.mock('../src/services/feature-flags', () => ({
+    isCoalitionActionRouterEnabled: jest.fn(() => true),
+}));
+
 import { executeEcosystemAction } from '../src/services/action-router';
 
 describe('ActionRouter integration', () => {

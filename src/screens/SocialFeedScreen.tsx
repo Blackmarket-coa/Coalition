@@ -6,6 +6,9 @@ import { useLanguage } from '../contexts/LanguageContext';
 import useLocationConsent from '../hooks/use-location-consent';
 import { executeEcosystemAction, EcosystemAction } from '../services/action-router';
 import { trackConversionEvent } from '../services/conversion-analytics';
+import { buildFeedRankingParams } from '../services/discovery-utils';
+import { logErrorCategory } from '../services/error-logging';
+import { createFeedPerformanceSample } from '../services/feed-performance';
 
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
@@ -13,12 +16,13 @@ const SocialFeedScreen = ({ navigation }) => {
     const { locationConsent } = useLocationConsent();
 
     const requestParams = useMemo(
-        () => ({
-            interests: ['Mutual Aid', 'Community Safety'],
-            consented_location_precision: locationConsent.granted ? locationConsent.precision : 'none',
-            joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
-            language: locale ?? 'en',
-        }),
+        () =>
+            buildFeedRankingParams({
+                interests: ['Mutual Aid', 'Community Safety'],
+                consented_location_precision: locationConsent.granted ? locationConsent.precision : 'none',
+                joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
+                language: locale ?? 'en',
+            }),
         [channels, locale, locationConsent]
     );
 
@@ -33,6 +37,13 @@ const SocialFeedScreen = ({ navigation }) => {
         <VerticalVideoFeed
             requestParams={requestParams}
             onMissingRoom={() => Alert.alert('Room unavailable', 'Comments are unavailable for this video right now.')}
+            onErrorCategory={(message, context) => logErrorCategory('feed_load_error', message, context)}
+            onPerformanceSample={(sample) => {
+                const check = createFeedPerformanceSample(sample.mediaStartLatencyMs, sample.scrollFrameDrops);
+                if (check.warning) {
+                    logErrorCategory('feed_load_error', 'Feed performance warning', check);
+                }
+            }}
             onReport={(item) => {
                 trackConversionEvent('abuse_report_submitted', { feed_item_id: item.id, room_id: item.roomId });
                 Alert.alert('Report submitted', 'Thanks for helping keep Coalition safe.');
