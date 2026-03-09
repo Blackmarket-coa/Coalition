@@ -3,6 +3,8 @@ import BackgroundGeolocation from 'react-native-background-geolocation';
 import BackgroundFetch from 'react-native-background-fetch';
 import { Place, Point } from '@fleetbase/sdk';
 import { isEmpty, config } from '../utils';
+import useLocationConsent from '../hooks/use-location-consent';
+import { toApproximateLocation } from '../utils/location-consent';
 import { useAuth } from './AuthContext';
 import useStorage from '../hooks/use-storage';
 import useFleetbase from '../hooks/use-fleetbase';
@@ -20,6 +22,22 @@ export const LocationProvider = ({ children }) => {
     const [authToken] = useStorage('_driver_token');
     const [location, setLocation] = useStorage(`${driver?.id ?? 'anon'}_location`, {});
     const [isTracking, setIsTracking] = useState(false);
+    const { locationConsent } = useLocationConsent();
+
+    const getPrivacySafeCoords = useCallback(
+        (coords) => {
+            if (!coords || locationConsent?.precision === 'off' || locationConsent?.granted === false) {
+                return null;
+            }
+
+            if (locationConsent?.precision === 'approximate') {
+                return { ...coords, ...toApproximateLocation({ latitude: coords.latitude, longitude: coords.longitude }) };
+            }
+
+            return coords;
+        },
+        [locationConsent]
+    );
 
     // Manually track location
     const trackLocation = useCallback(async () => {
@@ -31,12 +49,16 @@ export const LocationProvider = ({ children }) => {
                     event: 'getCurrentPosition',
                 },
             });
-            setLocation(location);
-            trackDriver(location.coords);
+            const privacySafeCoords = getPrivacySafeCoords(location.coords);
+            setLocation({ ...location, coords: privacySafeCoords ?? location.coords });
+
+            if (privacySafeCoords) {
+                trackDriver(privacySafeCoords);
+            }
         } catch (error) {
             console.warn('Error attempting to track and update location:', error);
         }
-    }, [trackDriver]);
+    }, [getPrivacySafeCoords, setLocation, trackDriver]);
 
     // Get the drivers location as a Place
     const getDriverLocationAsPlace = useCallback(
@@ -74,6 +96,20 @@ export const LocationProvider = ({ children }) => {
         };
     }, [adapter, driver, authToken]);
 
+    // Callback to handle location updates.
+    const onLocation = useCallback(
+        (location) => {
+            console.log('[BackgroundGeolocation] onLocation:', location);
+            const privacySafeCoords = getPrivacySafeCoords(location.coords);
+            setLocation({ ...location, coords: privacySafeCoords ?? location.coords });
+
+            if (privacySafeCoords) {
+                trackDriver(privacySafeCoords);
+            }
+        },
+        [getPrivacySafeCoords, trackDriver]
+    );
+
     // Callback to handle activity updates.
     const onMotionChange = useCallback(
         (event) => {
@@ -85,12 +121,6 @@ export const LocationProvider = ({ children }) => {
         [onLocation]
     );
 
-    // Callback to handle location updates.
-    const onLocation = useCallback((location) => {
-        console.log('[BackgroundGeolocation] onLocation:', location);
-        setLocation(location);
-    }, []);
-
     // Callback to handle location errors.
     const onLocationError = useCallback((error) => {
         console.warn('[BackgroundGeolocation] onLocationError:', error);
@@ -98,11 +128,16 @@ export const LocationProvider = ({ children }) => {
 
     // Function to start tracking.
     const startTracking = useCallback(() => {
+        if (locationConsent?.precision === 'off' || locationConsent?.granted === false) {
+            setIsTracking(false);
+            return;
+        }
+
         BackgroundGeolocation.start(() => {
             setIsTracking(true);
             console.log('[BackgroundGeolocation] Tracking started');
         });
-    }, []);
+    }, [locationConsent]);
 
     // Function to stop tracking.
     const stopTracking = useCallback(() => {
