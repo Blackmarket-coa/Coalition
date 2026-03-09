@@ -1,79 +1,26 @@
-import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { Text, YStack, XStack, useTheme } from 'tamagui';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBuilding, faTruck } from '@fortawesome/free-solid-svg-icons';
+import { YStack } from 'tamagui';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import { Driver, Place } from '@fleetbase/sdk';
-import { useLocation } from '../contexts/LocationContext';
-import { restoreFleetbasePlace, getCoordinates } from '../utils/location';
-import { config, last, first } from '../utils';
-import { formattedAddressFromPlace } from '../utils/location';
-import { toast } from '../utils/toast';
-import MapView, { Marker, Polyline } from 'react-native-maps';
-import LocationMarker from './LocationMarker';
+import { useLocation } from '@blackstar/core/src/contexts/LocationContext';
+import { restoreFleetbasePlace, getCoordinates } from '@blackstar/core/src/utils/location';
+import { last, first } from '@blackstar/core/src/utils';
 import DriverMarker from './DriverMarker';
-import useFleetbase from '../hooks/use-fleetbase';
-
-const ARCGIS_ROUTE_API = 'https://route.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve';
-
-const calculateDeltas = (zoom) => {
-    const baseDelta = 0.005;
-    return baseDelta * zoom;
-};
-
-const calculateZoomLevel = (latitudeDelta) => Math.log2(360 / latitudeDelta);
-
-const calculateOffset = (zoomLevel) => {
-    const baseOffsetX = 50;
-    const baseOffsetY = -700;
-    const zoomFactor = 1 / zoomLevel;
-    return {
-        x: baseOffsetX * zoomFactor,
-        y: baseOffsetY * zoomFactor,
-    };
-};
+import useFleetbase from '@blackstar/core/src/hooks/use-fleetbase';
+import { darkSolarpunkStyle, spriteIcons } from '../maps/style';
 
 const getPlaceCoords = (place) => {
     const [latitude, longitude] = getCoordinates(place);
     return { latitude, longitude };
 };
 
-const MarkerLabel = ({ label, markerOffset, theme, icon }) => (
-    <YStack mb={8} px='$2' py='$2' bg='$gray-900' borderRadius='$4' space='$1' shadowColor='$shadowColor' shadowOffset={markerOffset} shadowOpacity={0.25} shadowRadius={3} width={180}>
-        <XStack space='$2'>
-            <YStack justifyContent='center'>
-                <FontAwesomeIcon icon={icon ?? faBuilding} color={theme['$gray-200'].val} size={14} />
-            </YStack>
-            <YStack flex={1} space='$1'>
-                <Text fontSize='$2' color='$gray-200' numberOfLines={1}>
-                    {label}
-                </Text>
-            </YStack>
-        </XStack>
-    </YStack>
-);
-
-const LiveOrderRoute = ({
-    children,
-    order,
-    zoom = 1,
-    width = '100%',
-    height = '100%',
-    mapViewProps,
-    markerSize = 'sm',
-    edgePaddingTop = 50,
-    edgePaddingBottom = 50,
-    edgePaddingLeft = 50,
-    edgePaddingRight = 50,
-    scrollEnabled = true,
-    focusCurrentDestination = false,
-    ...props
-}) => {
-    const theme = useTheme();
-    const mapRef = useRef(null);
+const LiveOrderRoute = ({ order, width = '100%', height = '100%', zoom = 13, markerSize = 'sm', focusCurrentDestination = false, children, ...props }) => {
+    const mapRef = useRef<any>(null);
+    const cameraRef = useRef<any>(null);
     const { getDriverLocationAsPlace } = useLocation();
     const { adapter } = useFleetbase();
-    const [routeCoordinates, setRouteCoordinates] = useState([]);
+    const [driverPoint, setDriverPoint] = useState<any>(null);
 
     const pickup = order.getAttribute('payload.pickup');
     const dropoff = order.getAttribute('payload.dropoff');
@@ -83,151 +30,163 @@ const LiveOrderRoute = ({
         const currentWaypoint = order.getAttribute('payload.current_waypoint');
         const locations = [pickup, ...waypoints, dropoff].filter(Boolean);
         const destination = locations.find((place) => place?.id === currentWaypoint) ?? locations[0];
+        return new Place(destination, adapter);
+    }, [pickup, dropoff, waypoints, order, adapter]);
 
-        return new Place(destination);
-    }, [pickup, dropoff, waypoints, order]);
+    const start = useMemo(() => {
+        if (pickup) {
+            return restoreFleetbasePlace(pickup, adapter);
+        }
 
-    const startWaypoint = !pickup && waypoints.length > 0 ? waypoints[0] : pickup;
-    const start = focusCurrentDestination ? getDriverLocationAsPlace() : restoreFleetbasePlace(startWaypoint, adapter);
+        const fallback = getDriverLocationAsPlace(order.getAttribute('driver'));
+        return fallback ?? first(waypoints);
+    }, [pickup, adapter, order, waypoints, getDriverLocationAsPlace]);
 
-    const endWaypoint = !dropoff && waypoints.length > 0 && last(waypoints) !== first(waypoints) ? last(waypoints) : dropoff;
-    const end = focusCurrentDestination ? currentDestination : restoreFleetbasePlace(endWaypoint, adapter);
+    const end = useMemo(() => restoreFleetbasePlace(dropoff ?? last(waypoints), adapter), [dropoff, waypoints, adapter]);
 
-    const origin = getPlaceCoords(start);
-    const destination = getPlaceCoords(end);
+    const driverAssigned = useMemo(() => {
+        const driver = order.getAttribute('driver');
+        return driver ? new Driver(driver, adapter) : null;
+    }, [order, adapter]);
 
-    const middleWaypoints = useMemo(() => {
-        return focusCurrentDestination ? [] : waypoints.slice(1, -1).map((waypoint) => ({ coordinate: getPlaceCoords(waypoint), ...waypoint }));
-    }, [focusCurrentDestination, waypoints]);
+    const points = useMemo(() => {
+        const entries: any[] = [];
+        if (start) {
+            const c = getPlaceCoords(start);
+            entries.push({ type: 'Feature', properties: { role: 'pickup', icon: spriteIcons.pickup }, geometry: { type: 'Point', coordinates: [c.longitude, c.latitude] } });
+        }
 
-    const middleCoordinates = useMemo(() => middleWaypoints.map(({ coordinate }) => coordinate), [middleWaypoints]);
+        waypoints.forEach((wp) => {
+            const place = restoreFleetbasePlace(wp, adapter);
+            const c = getPlaceCoords(place);
+            entries.push({ type: 'Feature', properties: { role: 'waypoint', icon: spriteIcons.waypoint }, geometry: { type: 'Point', coordinates: [c.longitude, c.latitude] } });
+        });
 
-    markerSize = middleWaypoints.length > 0 ? (middleWaypoints.length > 3 ? 'xxs' : 'xs') : markerSize;
+        if (end) {
+            const c = getPlaceCoords(end);
+            entries.push({ type: 'Feature', properties: { role: 'dropoff', icon: spriteIcons.dropoff }, geometry: { type: 'Point', coordinates: [c.longitude, c.latitude] } });
+        }
 
-    const initialDeltas = calculateDeltas(zoom);
-    const [mapRegion, setMapRegion] = useState({
-        ...origin,
-        latitudeDelta: initialDeltas,
-        longitudeDelta: initialDeltas,
-    });
-    const [zoomLevel, setZoomLevel] = useState(calculateZoomLevel(initialDeltas));
-    const markerOffset = calculateOffset(zoomLevel);
-    const driverAssigned = order.getAttribute('driver_assigned') ? new Driver(order.getAttribute('driver_assigned')) : null;
+        return { type: 'FeatureCollection', features: entries };
+    }, [start, waypoints, end, adapter]);
 
-    const handleRegionChangeComplete = (region) => {
-        setMapRegion(region);
-        const newZoomLevel = calculateZoomLevel(region.latitudeDelta);
-        setZoomLevel(newZoomLevel);
-    };
-
-    const fitToCoordinates = useCallback(
-        (coordinates) => {
-            if (!mapRef.current || !Array.isArray(coordinates) || coordinates.length < 2) {
-                return;
-            }
-
-            mapRef.current.fitToCoordinates(coordinates, {
-                edgePadding: { top: edgePaddingTop, right: edgePaddingRight, bottom: edgePaddingBottom, left: edgePaddingLeft },
-                animated: true,
-            });
-        },
-        [edgePaddingTop, edgePaddingRight, edgePaddingBottom, edgePaddingLeft]
-    );
-
-    const focusDriver = ({ coordinates }) => {
-        const { latitude, longitude } = coordinates;
-        mapRef.current.animateToRegion(
-            {
-                latitude,
-                longitude,
-                latitudeDelta: initialDeltas,
-                longitudeDelta: initialDeltas,
-            },
-            500
-        );
-    };
+    const routeLine = useMemo(() => {
+        const coords = points.features.map((f) => f.geometry.coordinates);
+        return {
+            type: 'FeatureCollection',
+            features: coords.length > 1 ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] : [],
+        };
+    }, [points]);
 
     useEffect(() => {
-        let isCancelled = false;
+        if (!cameraRef.current || points.features.length === 0) return;
+        const allCoords = points.features.map((f) => f.geometry.coordinates);
+        if (focusCurrentDestination && currentDestination) {
+            const c = getPlaceCoords(currentDestination);
+            cameraRef.current.setCamera({ centerCoordinate: [c.longitude, c.latitude], zoomLevel: zoom, animationDuration: 600 });
+            return;
+        }
 
-        const fetchArcGisRoute = async () => {
-            try {
-                const stops = [origin, ...middleCoordinates, destination]
-                    .map((coord) => `${coord.longitude},${coord.latitude}`)
-                    .join(';');
+        if (allCoords.length === 1) {
+            cameraRef.current.setCamera({ centerCoordinate: allCoords[0], zoomLevel: zoom, animationDuration: 600 });
+            return;
+        }
 
-                const params = new URLSearchParams({
-                    f: 'json',
-                    stops,
-                    returnRoutes: 'true',
-                    returnDirections: 'false',
-                    outSR: '4326',
-                });
+        const lng = allCoords.map((c) => c[0]);
+        const lat = allCoords.map((c) => c[1]);
+        cameraRef.current.fitBounds([Math.max(...lng), Math.max(...lat)], [Math.min(...lng), Math.min(...lat)], 60, 600);
+    }, [points, focusCurrentDestination, currentDestination, zoom]);
 
-                const arcGisApiKey = config('ARCGIS_API_KEY');
-                if (arcGisApiKey) {
-                    params.append('token', arcGisApiKey);
-                }
+    const onDriverMovement = useCallback((movement) => {
+        if (!movement?.coordinates) return;
+        setDriverPoint([movement.coordinates.longitude, movement.coordinates.latitude]);
+    }, []);
 
-                const response = await fetch(`${ARCGIS_ROUTE_API}?${params.toString()}`);
-                const data = await response.json();
-
-                const paths = data?.routes?.features?.[0]?.geometry?.paths ?? [];
-                const coordinates = paths.flat().map(([longitude, latitude]) => ({ latitude, longitude }));
-
-                if (!isCancelled) {
-                    setRouteCoordinates(coordinates);
-                    fitToCoordinates(coordinates);
-                }
-            } catch (error) {
-                if (!isCancelled) {
-                    setRouteCoordinates([]);
-                    toast.error('Unable to load ArcGIS route geometry.');
-                }
-            }
-        };
-
-        fetchArcGisRoute();
-
-        return () => {
-            isCancelled = true;
-        };
-    }, [origin.latitude, origin.longitude, destination.latitude, destination.longitude, middleCoordinates, fitToCoordinates]);
+    const clusterRadius = markerSize === 'lg' ? 70 : 50;
 
     return (
-        <YStack flex={1} position='relative' overflow='hidden' width={width} height={height} {...props}>
-            <MapView
-                ref={mapRef}
-                style={{ ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' }}
-                initialRegion={mapRegion}
-                onRegionChangeComplete={handleRegionChangeComplete}
-                scrollEnabled={scrollEnabled}
-                {...mapViewProps}
-            >
-                {driverAssigned && <DriverMarker driver={driverAssigned} onMovement={focusDriver} />}
-                {start && start?.id !== 'driver' && (
-                    <Marker coordinate={origin} centerOffset={markerOffset}>
-                        <MarkerLabel icon={start?.id === 'driver' ? faTruck : null} label={formattedAddressFromPlace(start)} markerOffset={markerOffset} theme={theme} />
-                        <LocationMarker size={markerSize} />
-                    </Marker>
+        <YStack width={width} height={height} overflow='hidden' borderRadius='$4' {...props}>
+            <MapLibreGL.MapView ref={mapRef} style={StyleSheet.absoluteFill} mapStyle={darkSolarpunkStyle as any} logoEnabled={false} attributionEnabled={false} compassEnabled>
+                <MapLibreGL.Camera ref={cameraRef} />
+
+                <MapLibreGL.ShapeSource id='route-line-source' shape={routeLine as any}>
+                    <MapLibreGL.LineLayer
+                        id='route-line-layer'
+                        style={{
+                            lineColor: '#3b82f6',
+                            lineWidth: 4,
+                            lineOpacity: 0.9,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                        }}
+                    />
+                </MapLibreGL.ShapeSource>
+
+                <MapLibreGL.ShapeSource
+                    id='route-points-source'
+                    shape={points as any}
+                    cluster
+                    clusterRadius={clusterRadius}
+                    clusterMaxZoomLevel={14}
+                    clusterProperties={{
+                        pickupCount: [['+', ['accumulated'], ['case', ['==', ['get', 'role'], 'pickup'], 1, 0]], ['get', 'pickupCount']],
+                        dropoffCount: [['+', ['accumulated'], ['case', ['==', ['get', 'role'], 'dropoff'], 1, 0]], ['get', 'dropoffCount']],
+                    }}
+                >
+                    <MapLibreGL.CircleLayer
+                        id='route-points-cluster-circle'
+                        filter={['has', 'point_count']}
+                        style={{
+                            circleColor: '#22d3ee',
+                            circleRadius: ['step', ['get', 'point_count'], 16, 15, 20, 30, 26],
+                            circleOpacity: 0.85,
+                            circleStrokeWidth: 2,
+                            circleStrokeColor: '#0f172a',
+                        }}
+                    />
+                    <MapLibreGL.SymbolLayer
+                        id='route-points-cluster-count'
+                        filter={['has', 'point_count']}
+                        style={{
+                            textField: ['get', 'point_count_abbreviated'],
+                            textSize: 12,
+                            textColor: '#0b1120',
+                            textAllowOverlap: true,
+                        }}
+                    />
+                    <MapLibreGL.SymbolLayer
+                        id='route-points-symbol'
+                        filter={['!', ['has', 'point_count']]}
+                        style={{
+                            iconImage: ['get', 'icon'],
+                            iconSize: 0.75,
+                            iconAllowOverlap: true,
+                            iconIgnorePlacement: true,
+                        }}
+                    />
+                </MapLibreGL.ShapeSource>
+
+                {driverAssigned && <DriverMarker driver={driverAssigned} onMovement={onDriverMovement} />}
+
+                {driverPoint && (
+                    <MapLibreGL.ShapeSource
+                        id='driver-track-source'
+                        shape={{
+                            type: 'FeatureCollection',
+                            features: [
+                                { type: 'Feature', properties: { icon: spriteIcons.driver }, geometry: { type: 'Point', coordinates: driverPoint } },
+                            ],
+                        } as any}
+                    >
+                        <MapLibreGL.SymbolLayer
+                            id='driver-track-symbol'
+                            style={{ iconImage: ['get', 'icon'], iconSize: 0.8, iconAllowOverlap: true, iconIgnorePlacement: true }}
+                        />
+                    </MapLibreGL.ShapeSource>
                 )}
-                {middleWaypoints.map((waypoint, idx) => (
-                    <Marker key={waypoint.id || idx} coordinate={waypoint.coordinate} centerOffset={markerOffset}>
-                        <MarkerLabel label={waypoint.address} markerOffset={markerOffset} theme={theme} />
-                        <LocationMarker size={markerSize} />
-                    </Marker>
-                ))}
-                <Marker coordinate={destination} centerOffset={markerOffset}>
-                    <MarkerLabel label={formattedAddressFromPlace(end)} markerOffset={{ width: 0, height: 5 }} theme={theme} />
-                    <LocationMarker size={markerSize} />
-                </Marker>
 
-                {routeCoordinates.length > 1 && <Polyline coordinates={routeCoordinates} strokeWidth={4} strokeColor={theme['$blue-500'].val} />}
-            </MapView>
-
-            <YStack position='absolute' style={{ ...StyleSheet.absoluteFillObject }}>
                 {children}
-            </YStack>
+            </MapLibreGL.MapView>
         </YStack>
     );
 };

@@ -88,8 +88,6 @@
     "react-native-launch-navigator": "^1.0.9",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-localize": "^3.3.0",
-    "react-native-maps": "^1.20.0",
-    "react-native-maps-directions": "^1.9.0",
     "react-native-mmkv-storage": "^0.11.0",
     "react-native-notifications": "^5.1.0",
     "react-native-otp-entry": "^1.7.3",
@@ -116,7 +114,8 @@
     "webpack-cli": "^6.0.0",
     "webpack-dev-server": "^5.2.0",
     "@blackstar/core": "workspace:*",
-    "@blackstar/ui": "workspace:*"
+    "@blackstar/ui": "workspace:*",
+    "@maplibre/maplibre-react-native": "^10.1.31"
   },
   "devDependencies": {
     "@babel/runtime": "^7.25.0",

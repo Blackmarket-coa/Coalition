@@ -1,22 +1,21 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import TrackingMarker from './TrackingMarker';
-import useSocketClusterClient from '../hooks/use-socket-cluster-client';
-import useEventBuffer from '../hooks/use-event-buffer';
-import { getCoordinates } from '../utils/location';
+import useSocketClusterClient from '@blackstar/core/src/hooks/use-socket-cluster-client';
+import useEventBuffer from '@blackstar/core/src/hooks/use-event-buffer';
+import { getCoordinates } from '@blackstar/core/src/utils/location';
+import { spriteIcons } from '../maps/style';
 
 const VehicleMarker = ({ vehicle, onPositionChange, onHeadingChange, onMovement, ...props }) => {
-    const markerRef = useRef();
-    const listenerRef = useRef();
+    const markerRef = useRef<any>();
+    const listenerRef = useRef<any>();
+
     const handleEvent = useCallback((data) => {
-        console.log('Incoming data:', data);
-        const movementData = { data };
+        let movementData: any = { data };
 
         if (data.location && data.location.coordinates) {
             const [latitude, longitude] = data.location.coordinates;
-            if (markerRef.current) {
-                markerRef.current.move(latitude, longitude);
-            }
+            markerRef.current?.move(latitude, longitude);
 
             if (typeof onPositionChange === 'function') {
                 onPositionChange({ latitude, longitude });
@@ -26,11 +25,9 @@ const VehicleMarker = ({ vehicle, onPositionChange, onHeadingChange, onMovement,
         }
 
         if (typeof data.heading === 'number') {
-            if (markerRef.current) {
-                markerRef.current.rotate(data.heading);
-            }
+            markerRef.current?.rotate(data.heading);
 
-            if (typeof onPositionChange === 'function') {
+            if (typeof onHeadingChange === 'function') {
                 onHeadingChange(data.heading);
             }
 
@@ -40,33 +37,32 @@ const VehicleMarker = ({ vehicle, onPositionChange, onHeadingChange, onMovement,
         if (typeof onMovement === 'function') {
             onMovement(movementData);
         }
-    }, []);
+    }, [onHeadingChange, onMovement, onPositionChange]);
+
     const { listen } = useSocketClusterClient();
     const { addEvent, clearEvents } = useEventBuffer(handleEvent);
 
     useFocusEffect(
         useCallback(() => {
-            const trackDriverMovement = async () => {
+            const trackVehicleMovement = async () => {
                 const listener = await listen(`vehicle.${vehicle.id}`, (event) => addEvent(event));
                 if (listener) {
                     listenerRef.current = listener;
                 }
             };
 
-            trackDriverMovement();
+            trackVehicleMovement();
 
             return () => {
-                if (listenerRef.current) {
-                    listenerRef.current.stop();
-                }
+                listenerRef.current?.stop?.();
                 clearEvents();
             };
-        }, [listen, vehicle.id])
+        }, [listen, vehicle.id, addEvent, clearEvents])
     );
 
     const [latitude, longitude] = getCoordinates(vehicle);
-    console.log(`${vehicle.id} coordinates: ${latitude} ${longitude}`);
-    return <TrackingMarker ref={markerRef} coordinate={{ latitude, longitude }} imageSource={{ uri: vehicle.getAttribute('avatar_url') }} size={{ width: 50, height: 50 }} {...props} />;
+
+    return <TrackingMarker ref={markerRef} id={`vehicle-${vehicle.id}`} coordinate={{ latitude, longitude }} iconImage={spriteIcons.vehicle} {...props} />;
 };
 
 export default VehicleMarker;
