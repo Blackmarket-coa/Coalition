@@ -9,3 +9,5 @@ export type { MapCanvasRef, GeoJSONFeatureCollection, GeoJSONPointFeature, MapCa
 
 export { default as LocationConsent } from './components/LocationConsent';
 export { default as LocationPrivacySection } from './components/LocationPrivacySection';
+
+export { default as VerticalVideoFeed } from './components/VerticalVideoFeed';
