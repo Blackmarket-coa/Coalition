@@ -9,6 +9,7 @@ import OrderScreen from '../screens/OrderScreen';
 import EntityScreen from '../screens/EntityScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
 import PostTabScreen from '../screens/PostTabScreen';
+import SocialFeedScreen from '../screens/SocialFeedScreen';
 import ExploreMapScreen from '../screens/ExploreMapScreen';
 import ChatHomeScreen from '../screens/ChatHomeScreen';
 import ChatChannelScreen from '../screens/ChatChannelScreen';
@@ -35,8 +36,10 @@ const HomeTab = createNativeStackNavigator({
 });
 
 const FeedTab = createNativeStackNavigator({
-    initialRouteName: 'PostTab',
+    initialRouteName: 'FeedMain',
     screens: {
+        FeedMain: { screen: SocialFeedScreen, options: { headerShown: false } },
+        // Backward compatibility: preserve PostTab route name for existing deep links.
         PostTab: { screen: PostTabScreen, options: { headerShown: false } },
     },
 });
