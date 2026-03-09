@@ -42,6 +42,7 @@ import ChatParticipantsScreen from '../screens/ChatParticipantsScreen';
 import CreateChatChannelScreen from '../screens/CreateChatChannelScreen';
 import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverAccountScreen from '../screens/DriverAccountScreen';
+import ProviderOnboardingScreen from '../screens/ProviderOnboardingScreen';
 import { useOrderManager } from '../contexts/OrderManagerContext';
 import { useChat } from '../contexts/ChatContext';
 import useAppTheme from '../hooks/use-app-theme';
@@ -492,6 +493,15 @@ const DriverAccountTab = createNativeStackNavigator({
                     },
                 };
             },
+        },
+        ProviderOnboarding: {
+            screen: ProviderOnboardingScreen,
+            options: ({ navigation }) => ({
+                title: 'Provider Onboarding',
+                headerTransparent: false,
+                headerShadowVisible: false,
+                headerLeft: () => <BackButton onPress={() => navigation.goBack()} />,
+            }),
         },
     },
 });

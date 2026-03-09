@@ -7,6 +7,8 @@ import { Button, Text, YStack, Image, XStack, AlertDialog } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import { requestWebGeolocationPermission } from '../utils/location';
+import { buildLocationConsent } from '../utils/location-consent';
+import useLocationConsent from '../hooks/use-location-consent';
 import useStorage from '../hooks/use-storage';
 import { buildLocationConsent } from '../utils/location-consent';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -20,6 +22,7 @@ const LocationPermissionScreen: React.FC = () => {
 
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'retry' | 'settings'>('retry');
+    const { setLocationConsent } = useLocationConsent();
     const [, setLocationConsent] = useStorage('LOCATION_CONSENT_SETTINGS', { granted: false, precision: 'off', updatedAt: null });
 
     // Navigate to Boot, passing whether location is enabled
@@ -40,18 +43,40 @@ const LocationPermissionScreen: React.FC = () => {
         setDialogOpen(false);
     };
 
+    const checkCurrentPermissionPrecision = useCallback(async (): Promise<'precise' | 'approximate' | 'off'> => {
+        if (Platform.OS === 'web') {
+            return 'off';
+        }
+
+        if (Platform.OS === 'ios') {
+            const status = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+            return status === RESULTS.GRANTED ? 'precise' : 'off';
+        }
+
+        const fineStatus = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+        if (fineStatus === RESULTS.GRANTED) {
+            return 'precise';
+        }
+
+        const coarseStatus = await check(PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION);
+        if (coarseStatus === RESULTS.GRANTED) {
+            return 'approximate';
+        }
+
+        return 'off';
+    }, []);
+
     // Re-check status when coming back from Settings
     useFocusEffect(
         useCallback(() => {
             if (Platform.OS === 'web') return;
             (async () => {
-                const perm = PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
-                const status = await check(perm);
-                if (status === RESULTS.GRANTED) {
-                    finish(true);
+                const precision = await checkCurrentPermissionPrecision();
+                if (precision !== 'off') {
+                    finish(true, precision);
                 }
             })();
-        }, [finish])
+        }, [checkCurrentPermissionPrecision, finish])
     );
 
     // Request permission and decide dialog mode

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, FlatList, Pressable } from 'react-native';
 import { Avatar, Text, YStack, XStack, Separator, useTheme } from 'tamagui';
@@ -55,6 +55,7 @@ const DriverProfileScreen = () => {
     const menuItems = useMemo(() => {
         const items = [
             { id: '1', title: 'Account', screen: 'DriverAccount' },
+            { id: 'onboarding', title: 'Provider Onboarding', screen: 'ProviderOnboarding' },
             {
                 id: '2',
                 title: 'Organization',

@@ -21,7 +21,8 @@ const INITIAL_REGION: Region = {
 };
 
 const clusterItems = (items: SpatialFeedItem[], region: Region): ClusterPoint[] => {
-    const cellSize = Math.max(region.latitudeDelta, region.longitudeDelta) / 8;
+    const delta = Math.max(region.latitudeDelta, region.longitudeDelta);
+    const cellSize = Math.max(delta / 8, 0.001);
     const buckets = new Map<string, ClusterPoint>();
 
     items.forEach((item) => {
