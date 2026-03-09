@@ -9,7 +9,7 @@ import OrderScreen from '../screens/OrderScreen';
 import EntityScreen from '../screens/EntityScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
 import PostTabScreen from '../screens/PostTabScreen';
-import TestScreen from '../screens/TestScreen';
+import ExploreMapScreen from '../screens/ExploreMapScreen';
 import ChatHomeScreen from '../screens/ChatHomeScreen';
 import ChatChannelScreen from '../screens/ChatChannelScreen';
 import ChatParticipantsScreen from '../screens/ChatParticipantsScreen';
@@ -44,7 +44,7 @@ const FeedTab = createNativeStackNavigator({
 const ExploreTab = createNativeStackNavigator({
     initialRouteName: 'Test',
     screens: {
-        Test: { screen: TestScreen, options: { headerShown: false } },
+        Test: { screen: ExploreMapScreen, options: { headerShown: false } },
     },
 });
 

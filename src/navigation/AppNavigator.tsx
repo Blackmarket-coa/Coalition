@@ -4,10 +4,13 @@ import { Boot, LocationPermission, InstanceLink } from './stacks/CoreStack';
 import AuthStack from './stacks/AuthStack';
 import DriverNavigator from './DriverNavigator';
 import CoalitionNavigator from './CoalitionNavigator';
-import { useAuth } from '@blackstar/core/src/contexts/AuthContext';
+import OnboardingNavigator from './OnboardingNavigator';
+import { useAuth, useIsAuthenticated } from '@blackstar/core/src/contexts/AuthContext';
 import { config, toBoolean } from '../utils';
 import AppLayout from '../layouts/AppLayout';
 import { isDriverRole, resolveAuthenticatedNavigator } from './coalition-config';
+import useStorage from '../hooks/use-storage';
+import { ONBOARDING_STORAGE_KEY_PREFIX } from '../services/onboarding';
 
 function useAuthenticatedNavigatorRouteName() {
     const { driver } = useAuth();
@@ -17,11 +20,20 @@ function useAuthenticatedNavigatorRouteName() {
 }
 
 function useShouldShowCoalitionNavigator() {
-    return useAuthenticatedNavigatorRouteName() === 'CoalitionNavigator';
+    const { driver } = useAuth();
+    const [onboardingState] = useStorage(`${ONBOARDING_STORAGE_KEY_PREFIX}:${driver?.id ?? 'anon'}`, null);
+    return useAuthenticatedNavigatorRouteName() === 'CoalitionNavigator' && Boolean(onboardingState?.completedAt);
 }
 
 function useShouldShowDriverNavigator() {
     return useAuthenticatedNavigatorRouteName() === 'DriverNavigator';
+}
+
+function useShouldShowOnboardingNavigator() {
+    const isAuthenticated = useIsAuthenticated();
+    const { driver } = useAuth();
+    const [onboardingState] = useStorage(`${ONBOARDING_STORAGE_KEY_PREFIX}:${driver?.id ?? 'anon'}`, null);
+    return isAuthenticated && useAuthenticatedNavigatorRouteName() === 'CoalitionNavigator' && !onboardingState?.completedAt;
 }
 
 const RootStack = createNativeStackNavigator({
@@ -32,6 +44,11 @@ const RootStack = createNativeStackNavigator({
         LocationPermission,
         InstanceLink,
         ...AuthStack,
+        OnboardingNavigator: {
+            if: useShouldShowOnboardingNavigator,
+            screen: OnboardingNavigator,
+            options: { headerShown: false, gestureEnabled: false, animation: 'none' },
+        },
         CoalitionNavigator: {
             if: useShouldShowCoalitionNavigator,
             screen: CoalitionNavigator,
