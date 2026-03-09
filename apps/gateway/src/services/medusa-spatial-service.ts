@@ -61,7 +61,7 @@ export class MedusaSpatialService {
     }
 
     private listSellers = async (limit: number, offset: number): Promise<MedusaSeller[]> => {
-        const query = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: '+store_name,+handle,+description' });
+        const query = new URLSearchParams({ limit: String(limit), offset: String(offset), fields: '+store_name,+handle,+description,+location' });
         const res = await this.medusa.client.fetch<MedusaSellerListResponse>(`/admin/sellers?${query.toString()}`);
         return toArray<MedusaSeller>(res);
     };

@@ -9,12 +9,12 @@ export class SpatialRepository {
             SELECT
                 sl.entity_type,
                 sl.entity_id::text,
-                ST_X(sl.geom::geometry) AS longitude,
-                ST_Y(sl.geom::geometry) AS latitude
+                ST_X(sl.coordinates::geometry) AS longitude,
+                ST_Y(sl.coordinates::geometry) AS latitude
             FROM seller_location sl
             WHERE sl.entity_type = ANY($1::text[])
               AND ST_Within(
-                sl.geom,
+                sl.coordinates,
                 ST_MakeEnvelope($2, $3, $4, $5, 4326)
               )
             ORDER BY sl.entity_type, sl.entity_id

@@ -60,6 +60,10 @@ export interface MedusaSeller {
     store_name?: string | null;
     handle?: string | null;
     description?: string | null;
+    location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+    } | null;
     status?: string | null;
     image_url?: string | null;
     rating?: number | null;
@@ -70,6 +74,10 @@ export interface MedusaProduct {
     title?: string | null;
     handle?: string | null;
     description?: string | null;
+    location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+    } | null;
     status?: string | null;
     thumbnail?: string | null;
     variants?: MedusaProductVariant[];
@@ -91,6 +99,10 @@ export interface MedusaGarden {
     id: string;
     name?: string | null;
     description?: string | null;
+    location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+    } | null;
     status?: string | null;
     image_url?: string | null;
     rating?: number | null;
@@ -100,6 +112,10 @@ export interface MedusaKitchen {
     id: string;
     name?: string | null;
     description?: string | null;
+    location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+    } | null;
     status?: string | null;
     image_url?: string | null;
     rating?: number | null;
@@ -109,6 +125,10 @@ export interface MedusaProducer {
     id: string;
     name?: string | null;
     description?: string | null;
+    location?: {
+        latitude?: number | null;
+        longitude?: number | null;
+    } | null;
     status?: string | null;
     image_url?: string | null;
     rating?: number | null;
