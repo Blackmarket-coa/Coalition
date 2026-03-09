@@ -55,6 +55,7 @@ const DriverProfileScreen = () => {
     const menuItems = useMemo(() => {
         const items = [
             { id: '1', title: 'Account', screen: 'DriverAccount' },
+            { id: 'onboarding', title: 'Provider Onboarding', screen: 'ProviderOnboarding' },
             {
                 id: '2',
                 title: 'Organization',
