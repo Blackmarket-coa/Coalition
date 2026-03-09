@@ -5,6 +5,7 @@ import { useTheme } from 'tamagui';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCompass, faEnvelope, faHouse, faPlayCircle, faUser } from '@fortawesome/free-solid-svg-icons';
 import DriverOrderManagementScreen from '../screens/DriverOrderManagementScreen';
+import HomeRecommendationsScreen from '../screens/HomeRecommendationsScreen';
 import OrderScreen from '../screens/OrderScreen';
 import EntityScreen from '../screens/EntityScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
@@ -25,8 +26,9 @@ import { coalitionPrimaryTab } from './coalition-config';
 const isAndroid = Platform.OS === 'android';
 
 const HomeTab = createNativeStackNavigator({
-    initialRouteName: 'DriverOrderManagement',
+    initialRouteName: 'HomeRecommendations',
     screens: {
+        HomeRecommendations: { screen: HomeRecommendationsScreen, options: { headerShown: false } },
         // Backward compatibility: keep legacy route names for existing order flows.
         DriverOrderManagement: { screen: DriverOrderManagementScreen, options: { headerShown: false } },
         Order: { screen: OrderScreen, options: { headerShown: false } },

@@ -4,6 +4,7 @@ import { VerticalVideoFeed } from '@blackstar/ui';
 import { useChat } from '../contexts/ChatContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import useLocationConsent from '../hooks/use-location-consent';
+import { executeEcosystemAction, EcosystemAction } from '../services/action-router';
 
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
@@ -20,27 +21,26 @@ const SocialFeedScreen = ({ navigation }) => {
         [channels, locale, locationConsent]
     );
 
+    const ctaToAction = (module: 'shop' | 'jobs' | 'aid' | 'governance'): EcosystemAction => {
+        if (module === 'shop') return { type: 'SHOP_ITEM' };
+        if (module === 'jobs') return { type: 'APPLY_JOB', payload: { jobId: 'job_101', providerId: 'provider_demo' } };
+        if (module === 'aid') return { type: 'REQUEST_AID' };
+        return { type: 'OPEN_PROPOSAL' };
+    };
+
     return (
         <VerticalVideoFeed
             requestParams={requestParams}
             onMissingRoom={() => Alert.alert('Room unavailable', 'Comments are unavailable for this video right now.')}
-            onOpenCta={(module) => {
-                if (module === 'shop') {
-                    navigation.navigate('PostTab');
-                    return;
-                }
+            onOpenCta={async (module) => {
+                const result = await executeEcosystemAction(ctaToAction(module), {
+                    navigate: navigation.navigate,
+                    onUnhandled: (_action, reason) => Alert.alert('Action unavailable', reason),
+                });
 
-                if (module === 'jobs') {
-                    navigation.navigate('Home');
-                    return;
+                if (!result.ok) {
+                    Alert.alert('Action unavailable', 'This ecosystem action is not available right now.');
                 }
-
-                if (module === 'aid') {
-                    navigation.navigate('Explore');
-                    return;
-                }
-
-                navigation.navigate('Messages');
             }}
         />
     );

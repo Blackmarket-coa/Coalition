@@ -1,0 +1,61 @@
+import { claimGatewayJob } from './blackstar-gateway';
+
+export type EcosystemActionType = 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
+
+export type EcosystemAction =
+    | { type: 'SHOP_ITEM'; payload?: { itemId?: string } }
+    | { type: 'POST_OFFERING'; payload?: { category?: string } }
+    | { type: 'APPLY_JOB'; payload: { jobId: string; providerId: string } }
+    | { type: 'JOIN_ROOM'; payload: { roomId: string } }
+    | { type: 'OPEN_PROPOSAL'; payload?: { proposalId?: string } }
+    | { type: 'REQUEST_AID'; payload?: { aidType?: string } };
+
+export interface ActionRouterContext {
+    navigate: (routeName: string, params?: Record<string, any>) => void;
+    joinRoom?: (roomIdOrAlias: string) => Promise<void>;
+    onUnhandled?: (action: EcosystemAction, reason: string) => void;
+    trackRecentBehavior?: (entry: string) => void;
+}
+
+export async function executeEcosystemAction(action: EcosystemAction, context: ActionRouterContext) {
+    try {
+        switch (action.type) {
+            case 'SHOP_ITEM':
+                context.navigate('Feed', { screen: 'PostTab', params: { action: 'shop', itemId: action.payload?.itemId } });
+                context.trackRecentBehavior?.('SHOP_ITEM');
+                return { ok: true, module: 'free-black-market' };
+            case 'POST_OFFERING':
+                context.navigate('Feed', { screen: 'PostTab', params: { action: 'post-offering', category: action.payload?.category } });
+                context.trackRecentBehavior?.('POST_OFFERING');
+                return { ok: true, module: 'free-black-market' };
+            case 'APPLY_JOB':
+                await claimGatewayJob(action.payload.jobId, action.payload.providerId);
+                context.navigate('Home', { screen: 'DriverOrderManagement' });
+                context.trackRecentBehavior?.('APPLY_JOB');
+                return { ok: true, module: 'Blackstar' };
+            case 'JOIN_ROOM':
+                if (!context.joinRoom) {
+                    context.onUnhandled?.(action, 'Matrix join adapter unavailable');
+                    return { ok: false, reason: 'MATRIX_UNAVAILABLE' };
+                }
+                await context.joinRoom(action.payload.roomId);
+                context.navigate('Messages', { screen: 'ChatHome' });
+                context.trackRecentBehavior?.('JOIN_ROOM');
+                return { ok: true, module: 'Blackout Matrix rooms' };
+            case 'OPEN_PROPOSAL':
+                context.navigate('Explore', { screen: 'Test', params: { proposalId: action.payload?.proposalId } });
+                context.trackRecentBehavior?.('OPEN_PROPOSAL');
+                return { ok: true, module: 'Governance' };
+            case 'REQUEST_AID':
+                context.navigate('Explore', { screen: 'Test', params: { aidRequest: true, aidType: action.payload?.aidType } });
+                context.trackRecentBehavior?.('REQUEST_AID');
+                return { ok: true, module: 'Aid' };
+            default:
+                context.onUnhandled?.(action, 'Unknown action type');
+                return { ok: false, reason: 'UNRESOLVED_ACTION' };
+        }
+    } catch (error) {
+        context.onUnhandled?.(action, error instanceof Error ? error.message : 'Action execution failed');
+        return { ok: false, reason: 'ACTION_EXECUTION_FAILED' };
+    }
+}
