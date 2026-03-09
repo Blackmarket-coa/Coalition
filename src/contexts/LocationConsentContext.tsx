@@ -12,7 +12,7 @@ interface LocationConsentContextValue {
     isLocationAvailable: boolean;
     requestConsent: () => Promise<ConsentStatus>;
     revokeConsent: () => Promise<void>;
-    setConsentStatus: (status: ConsentStatus) => Promise<void>;
+    denyConsent: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'location_consent';
@@ -22,7 +22,7 @@ const LocationConsentContext = createContext<LocationConsentContextValue>({
     isLocationAvailable: false,
     requestConsent: async () => 'denied',
     revokeConsent: async () => {},
-    setConsentStatus: async () => {},
+    denyConsent: async () => {},
 });
 
 const getPermissionForPlatform = () => {
@@ -33,7 +33,7 @@ const getPermissionForPlatform = () => {
 export const LocationConsentProvider = ({ children }) => {
     const [consentStatus, setConsentState] = useState<ConsentStatus>('unknown');
 
-    const setConsentStatus = useCallback(async (status: ConsentStatus) => {
+    const persistConsentStatus = useCallback(async (status: ConsentStatus) => {
         setConsentState(status);
         await AsyncStorage.setItem(STORAGE_KEY, status);
     }, []);
@@ -53,12 +53,17 @@ export const LocationConsentProvider = ({ children }) => {
         const next = current === RESULTS.GRANTED ? current : await request(permission);
 
         const status: ConsentStatus = next === RESULTS.GRANTED ? 'granted' : 'denied';
-        await setConsentStatus(status);
+        await persistConsentStatus(status);
         return status;
-    }, [setConsentStatus]);
+    }, [persistConsentStatus]);
 
     const revokeConsent = useCallback(async () => {
-        await setConsentStatus('revoked');
+        const wasShared = consentStatus === 'granted';
+        await persistConsentStatus('revoked');
+
+        if (!wasShared) {
+            return;
+        }
 
         const token = getString('_driver_token');
         const backend = config('MEDUSA_BACKEND_URL');
@@ -77,17 +82,21 @@ export const LocationConsentProvider = ({ children }) => {
         } catch (error) {
             console.warn('Failed to delete seller location during revokeConsent:', error);
         }
-    }, [setConsentStatus]);
+    }, [consentStatus, persistConsentStatus]);
+
+    const denyConsent = useCallback(async () => {
+        await persistConsentStatus('denied');
+    }, [persistConsentStatus]);
 
     const value = useMemo(
         () => ({
             consentStatus,
             requestConsent,
             revokeConsent,
-            setConsentStatus,
+            denyConsent,
             isLocationAvailable: consentStatus === 'granted',
         }),
-        [consentStatus, requestConsent, revokeConsent, setConsentStatus]
+        [consentStatus, requestConsent, revokeConsent, denyConsent]
     );
 
     return <LocationConsentContext.Provider value={value}>{children}</LocationConsentContext.Provider>;

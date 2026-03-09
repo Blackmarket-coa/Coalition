@@ -6,7 +6,7 @@ import { useLocationConsentContext } from '@blackstar/core/src/contexts/Location
 const guaranteeItems = ['Approximate only — never your exact address.', 'Visible only to people you choose.', 'Hideable anytime in Privacy settings.', 'Pauses when the app is closed.'];
 
 export const LocationConsent = ({ visible = true, onClose = () => {} }) => {
-    const { requestConsent, setConsentStatus } = useLocationConsentContext();
+    const { requestConsent, denyConsent } = useLocationConsentContext();
     const [loading, setLoading] = useState(false);
 
     const modalVisible = useMemo(() => visible, [visible]);
@@ -19,7 +19,7 @@ export const LocationConsent = ({ visible = true, onClose = () => {} }) => {
     };
 
     const handleNotNow = async () => {
-        await setConsentStatus('denied');
+        await denyConsent();
         onClose();
     };
 
