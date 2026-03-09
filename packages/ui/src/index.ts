@@ -11,3 +11,5 @@ export { default as LocationConsent } from './components/LocationConsent';
 export { default as LocationPrivacySection } from './components/LocationPrivacySection';
 
 export { default as VerticalVideoFeed } from './components/VerticalVideoFeed';
+
+export { default as ChatPanel } from './components/ChatPanel';

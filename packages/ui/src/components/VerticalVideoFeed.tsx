@@ -4,6 +4,7 @@ import Video from 'react-native-video';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import Config from 'react-native-config';
 import { Circle, Image, Paragraph, Text, XStack, YStack } from 'tamagui';
+import ChatPanel from './ChatPanel';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -315,19 +316,7 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, onOp
                 viewabilityConfig={viewabilityConfig}
             />
 
-            {chatItem ? (
-                <YStack position='absolute' left={12} right={12} bottom={12} p='$3' borderRadius={20} bg='rgba(8,18,15,0.92)' borderWidth={1} borderColor={solarpunk.accentGreen}>
-                    <Text color={solarpunk.white} fontWeight='700'>
-                        ChatPanel
-                    </Text>
-                    <Text color={solarpunk.dim}>Open comments for room: {chatItem.roomId}</Text>
-                    <Pressable onPress={() => setChatItem(null)}>
-                        <Text color={solarpunk.accentGold} mt='$2'>
-                            Close
-                        </Text>
-                    </Pressable>
-                </YStack>
-            ) : null}
+            {chatItem ? <ChatPanel roomId={chatItem.roomId} visible mode='overlay' onClose={() => setChatItem(null)} /> : null}
         </YStack>
     );
 };
