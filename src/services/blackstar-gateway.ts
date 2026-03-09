@@ -69,6 +69,25 @@ const sampleAssignments: BlackstarAssignment[] = [
     },
 ];
 
+const normalizeClaim = (claim: any): BlackstarClaim => ({
+    id: String(claim?.id ?? ''),
+    jobId: String(claim?.jobId ?? claim?.job_id ?? ''),
+    status: claim?.status ?? 'pending',
+    createdAt: claim?.createdAt ?? claim?.created_at ?? new Date().toISOString(),
+});
+
+const normalizeJobs = (jobs: any[]): BlackstarJob[] =>
+    (Array.isArray(jobs) ? jobs : []).map((job) => ({
+        ...job,
+        claimable: Boolean(job?.claimable),
+    }));
+
+const normalizeAssignments = (assignments: any[]): BlackstarAssignment[] =>
+    (Array.isArray(assignments) ? assignments : []).map((assignment) => ({
+        ...assignment,
+        path: Array.isArray(assignment?.path) ? assignment.path : [],
+    }));
+
 const getGatewayBase = () => {
     const host = config('BLACKSTAR_GATEWAY_HOST', '').replace(/\/$/, '');
     const apiKey = config('BLACKSTAR_GATEWAY_KEY', '');
@@ -104,26 +123,26 @@ const gatewayFetch = async <T>(path: string, options: RequestInit = {}, fallback
     }
 };
 
-export const getGatewayJobs = () => gatewayFetch<BlackstarJob[]>('/v1/jobs', {}, sampleJobs);
+export const getGatewayJobs = async () => normalizeJobs(await gatewayFetch<BlackstarJob[]>('/v1/jobs', {}, sampleJobs));
 
-export const getGatewayClaims = () => gatewayFetch<BlackstarClaim[]>('/v1/claims', {}, sampleClaims);
+export const getGatewayClaims = async () => (await gatewayFetch<BlackstarClaim[]>('/v1/claims', {}, sampleClaims)).map(normalizeClaim);
 
 export const claimGatewayJob = async (jobId: string, providerId: string) => {
     return gatewayFetch<BlackstarClaim>(
         '/v1/claims',
         { method: 'POST', body: JSON.stringify({ job_id: jobId, provider_id: providerId }) },
         { id: `claim_${jobId}`, jobId, status: 'pending', createdAt: new Date().toISOString() }
-    );
+    ).then(normalizeClaim);
 };
 
-export const getGatewayAssignments = () => gatewayFetch<BlackstarAssignment[]>('/v1/assignments', {}, sampleAssignments);
+export const getGatewayAssignments = async () => normalizeAssignments(await gatewayFetch<BlackstarAssignment[]>('/v1/assignments', {}, sampleAssignments));
 
 export const upsertProviderOnboardingProfile = (profile: ProviderOnboardingProfile) =>
-    gatewayFetch<ProviderOnboardingProfile>(`/v1/providers/${profile.providerId}/onboarding`, { method: 'PUT', body: JSON.stringify(profile) }, profile);
+    gatewayFetch<ProviderOnboardingProfile>(`/v1/providers/${encodeURIComponent(profile.providerId)}/onboarding`, { method: 'PUT', body: JSON.stringify(profile) }, profile);
 
 export const getProviderOnboardingProfile = (providerId: string) =>
     gatewayFetch<ProviderOnboardingProfile>(
-        `/v1/providers/${providerId}/onboarding`,
+        `/v1/providers/${encodeURIComponent(providerId)}/onboarding`,
         {},
         {
             providerId,

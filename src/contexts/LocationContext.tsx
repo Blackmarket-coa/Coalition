@@ -63,14 +63,14 @@ export const LocationProvider = ({ children }) => {
     // Get the drivers location as a Place
     const getDriverLocationAsPlace = useCallback(
         (attributes = {}) => {
-            const { coords } = location;
+            const coords = location?.coords;
 
             return new Place(
                 {
                     id: 'driver',
                     name: 'Driver Location',
                     street1: 'Driver Location',
-                    location: new Point(coords.latitude, coords.longitude),
+                    location: new Point(coords?.latitude ?? 0, coords?.longitude ?? 0),
                     ...attributes,
                 },
                 adapter
