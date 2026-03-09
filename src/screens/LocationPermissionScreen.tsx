@@ -9,6 +9,8 @@ import { faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
 import { requestWebGeolocationPermission } from '../utils/location';
 import { buildLocationConsent } from '../utils/location-consent';
 import useLocationConsent from '../hooks/use-location-consent';
+import useStorage from '../hooks/use-storage';
+import { buildLocationConsent } from '../utils/location-consent';
 import { useLanguage } from '../contexts/LanguageContext';
 import useDimensions from '../hooks/use-dimensions';
 
@@ -21,6 +23,7 @@ const LocationPermissionScreen: React.FC = () => {
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'retry' | 'settings'>('retry');
     const { setLocationConsent } = useLocationConsent();
+    const [, setLocationConsent] = useStorage('LOCATION_CONSENT_SETTINGS', { granted: false, precision: 'off', updatedAt: null });
 
     // Navigate to Boot, passing whether location is enabled
     const finish = useCallback(
