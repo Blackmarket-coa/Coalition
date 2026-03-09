@@ -1,6 +1,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
+import Config from 'react-native-config';
 import { Text, YStack } from 'tamagui';
 
 export type SpatialLayer = 'market' | 'jobs' | 'govern' | 'aid';
@@ -41,80 +42,116 @@ interface MapCanvasProps {
     features: GeoJSONFeatureCollection;
     onEntitySelect: (feature: GeoJSONPointFeature) => void;
     locationPermissionGranted?: boolean;
-    isLocationAvailable?: boolean;
-    locationUnavailableMessage?: string;
     initialZoom?: number;
     initialCenter?: [number, number];
     style?: object;
 }
 
 const DEFAULT_TILE_URL = 'https://tiles.example.com';
+const MARTIN_TILE_URL = String(Config.MARTIN_TILE_URL || DEFAULT_TILE_URL).replace(/\/$/, '');
+const MARTIN_SPRITE_URL = String(Config.MARTIN_SPRITE_URL || `${MARTIN_TILE_URL}/sprites/dark-solarpunk`);
+const MARTIN_GLYPHS_URL = String(Config.MARTIN_GLYPHS_URL || `${MARTIN_TILE_URL}/fonts/{fontstack}/{range}.pbf`);
 
-const getMartinTileUrl = () => {
-    const envUrl = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.MARTIN_TILE_URL ?? DEFAULT_TILE_URL;
-
-    return envUrl.replace(/\/$/, '');
-};
-
-const createMapStyle = (tileUrl: string) => ({
+const createMapStyle = () => ({
     version: 8,
+    name: 'MapCanvasStyle',
+    sprite: MARTIN_SPRITE_URL,
+    glyphs: MARTIN_GLYPHS_URL,
     sources: {
         martin: {
             type: 'vector',
-            tiles: [`${tileUrl}/{z}/{x}/{y}.pbf`],
+            tiles: [`${MARTIN_TILE_URL}/{z}/{x}/{y}.pbf`],
             minzoom: 0,
             maxzoom: 22,
         },
     },
-    layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#0b1220' } }],
+    layers: [
+        {
+            id: 'bg',
+            type: 'background',
+            paint: {
+                'background-color': '#0b1220',
+            },
+        },
+    ],
 });
 
+const getDominantLayerColorExpression = () =>
+    [
+        'case',
+        ['all', ['>=', ['get', 'market_count'], ['get', 'jobs_count']], ['>=', ['get', 'market_count'], ['get', 'govern_count']], ['>=', ['get', 'market_count'], ['get', 'aid_count']]],
+        '#22c55e',
+        ['all', ['>=', ['get', 'jobs_count'], ['get', 'market_count']], ['>=', ['get', 'jobs_count'], ['get', 'govern_count']], ['>=', ['get', 'jobs_count'], ['get', 'aid_count']]],
+        '#f59e0b',
+        ['all', ['>=', ['get', 'govern_count'], ['get', 'market_count']], ['>=', ['get', 'govern_count'], ['get', 'jobs_count']], ['>=', ['get', 'govern_count'], ['get', 'aid_count']]],
+        '#a855f7',
+        '#06b6d4',
+    ] as any;
+
+const boundsFromCoordinates = (coordinates: [number, number][]) => {
+    if (!coordinates.length) {
+        return null;
+    }
+
+    let minLng = coordinates[0][0];
+    let maxLng = coordinates[0][0];
+    let minLat = coordinates[0][1];
+    let maxLat = coordinates[0][1];
+
+    for (const [lng, lat] of coordinates) {
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+    }
+
+    return {
+        ne: [maxLng, maxLat] as [number, number],
+        sw: [minLng, minLat] as [number, number],
+    };
+};
+
 export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCanvas(
-    {
-        features,
-        onEntitySelect,
-        locationPermissionGranted = false,
-        isLocationAvailable = true,
-        locationUnavailableMessage = 'Location access is off. Enable approximate location to view nearby markers.',
-        initialZoom = 11,
-        initialCenter = [-121.4944, 38.5816],
-        style,
-    },
+    { features, onEntitySelect, locationPermissionGranted = false, initialZoom = 11, initialCenter = [-121.4944, 38.5816], style },
     ref
 ) {
-    const tileUrl = useMemo(() => getMartinTileUrl(), []);
-    const mapStyle = useMemo(() => createMapStyle(tileUrl), [tileUrl]);
+    const mapStyle = useMemo(() => createMapStyle(), []);
     const cameraRef = useRef<any>(null);
     const shapeSourceRef = useRef<any>(null);
     const webMapRef = useRef<any>(null);
     const webMapContainerRef = useRef<View | null>(null);
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
-    const centerOnCluster = useCallback(async (feature: any) => {
-        const clusterId = feature?.properties?.cluster_id;
-        const center = feature?.geometry?.coordinates;
-        if (!clusterId || !Array.isArray(center)) {
+    const zoomToNativeClusterBounds = useCallback(async (clusterFeature: any) => {
+        const clusterId = clusterFeature?.properties?.cluster_id;
+        if (!clusterId) {
             return;
         }
 
         try {
-            const expansionZoom = await shapeSourceRef.current?.getClusterExpansionZoom(clusterId);
-            if (cameraRef.current?.setCamera) {
-                cameraRef.current.setCamera({
-                    centerCoordinate: center,
-                    zoomLevel: expansionZoom ?? 15,
-                    animationDuration: 400,
-                });
+            const leaves = await shapeSourceRef.current?.getClusterLeaves(clusterId, 100, 0);
+            const coords = (leaves ?? []).map((leaf: any) => leaf?.geometry?.coordinates).filter((coord: unknown): coord is [number, number] => Array.isArray(coord) && coord.length === 2);
+
+            const bounds = boundsFromCoordinates(coords);
+            if (bounds && cameraRef.current?.fitBounds) {
+                cameraRef.current.fitBounds(bounds.ne, bounds.sw, 60, 500);
+                return;
             }
-        } catch {
-            if (cameraRef.current?.setCamera) {
-                cameraRef.current.setCamera({
-                    centerCoordinate: center,
-                    zoomLevel: 15,
-                    animationDuration: 400,
-                });
-            }
+        } catch (error) {
+            console.warn('Unable to compute cluster bounds from leaves:', error);
         }
+
+        const center = clusterFeature?.geometry?.coordinates;
+        if (!Array.isArray(center)) {
+            return;
+        }
+
+        const expansionZoom = await shapeSourceRef.current?.getClusterExpansionZoom?.(clusterId);
+        cameraRef.current?.setCamera?.({
+            centerCoordinate: center,
+            zoomLevel: expansionZoom ?? 15,
+            animationDuration: 400,
+        });
     }, []);
 
     const handleNativeShapePress = useCallback(
@@ -124,37 +161,30 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                 return;
             }
 
-            const isCluster = Boolean(tapped.properties?.cluster);
-            if (isCluster) {
-                await centerOnCluster(tapped);
+            if (tapped.properties?.cluster) {
+                await zoomToNativeClusterBounds(tapped);
                 return;
             }
 
             onEntitySelect(tapped as GeoJSONPointFeature);
         },
-        [centerOnCluster, onEntitySelect]
+        [onEntitySelect, zoomToNativeClusterBounds]
     );
 
-    useImperativeHandle(
-        ref,
-        () => ({
-            flyTo: (coordinates, zoom = 14) => {
-                if (Platform.OS === 'web' && webMapRef.current) {
-                    webMapRef.current.flyTo({ center: coordinates, zoom, essential: true });
-                    return;
-                }
+    useImperativeHandle(ref, () => ({
+        flyTo: (coordinates, zoom = 14) => {
+            if (Platform.OS === 'web' && webMapRef.current) {
+                webMapRef.current.flyTo({ center: coordinates, zoom, essential: true });
+                return;
+            }
 
-                if (cameraRef.current?.setCamera) {
-                    cameraRef.current.setCamera({
-                        centerCoordinate: coordinates,
-                        zoomLevel: zoom,
-                        animationDuration: 450,
-                    });
-                }
-            },
-        }),
-        []
-    );
+            cameraRef.current?.setCamera?.({
+                centerCoordinate: coordinates,
+                zoomLevel: zoom,
+                animationDuration: 450,
+            });
+        },
+    }));
 
     useEffect(() => {
         if (!locationPermissionGranted || Platform.OS !== 'web') {
@@ -195,7 +225,25 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                     cluster: true,
                     clusterMaxZoom: 14,
                     clusterRadius: 50,
-                });
+                    clusterProperties: {
+                        market_count: [
+                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'market'], 1, 0]],
+                            ['case', ['==', ['get', 'layer'], 'market'], 1, 0],
+                        ],
+                        jobs_count: [
+                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0]],
+                            ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0],
+                        ],
+                        govern_count: [
+                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'govern'], 1, 0]],
+                            ['case', ['==', ['get', 'layer'], 'govern'], 1, 0],
+                        ],
+                        aid_count: [
+                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'aid'], 1, 0]],
+                            ['case', ['==', ['get', 'layer'], 'aid'], 1, 0],
+                        ],
+                    },
+                } as any);
 
                 map.addLayer({
                     id: 'clusters',
@@ -203,11 +251,13 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                     source: 'spatial-feed',
                     filter: ['has', 'point_count'],
                     paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 1, 18, 100, 36, 1000, 50],
-                        'circle-color': '#22c55e',
-                        'circle-opacity': 0.85,
+                        'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 1, 16, 100, 30, 1000, 44],
+                        'circle-color': getDominantLayerColorExpression(),
+                        'circle-opacity': 0.86,
+                        'circle-stroke-color': '#0f172a',
+                        'circle-stroke-width': 2,
                     },
-                });
+                } as any);
 
                 map.addLayer({
                     id: 'points',
@@ -219,7 +269,7 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                         'icon-size': 0.8,
                         'icon-allow-overlap': true,
                     },
-                });
+                } as any);
 
                 map.on('click', 'points', (e: any) => {
                     const hit = e.features?.[0];
@@ -235,9 +285,18 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                     }
 
                     map.getSource('spatial-feed')
-                        // @ts-expect-error web source api
-                        .getClusterExpansionZoom(hit.properties.cluster_id, (_error: unknown, zoom: number) => {
-                            map.easeTo({ center: hit.geometry.coordinates, zoom });
+                        // @ts-expect-error web cluster source api
+                        .getClusterLeaves(hit.properties.cluster_id, 100, 0, (_err: unknown, leaves: any[]) => {
+                            const coords = (leaves ?? [])
+                                .map((leaf: any) => leaf?.geometry?.coordinates)
+                                .filter((coord: unknown): coord is [number, number] => Array.isArray(coord) && coord.length === 2);
+
+                            const bounds = boundsFromCoordinates(coords);
+                            if (!bounds) {
+                                return;
+                            }
+
+                            map.fitBounds([bounds.sw, bounds.ne], { padding: 60, duration: 500 });
                         });
                 });
 
@@ -252,15 +311,6 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
         };
     }, [features, initialCenter, initialZoom, mapStyle, onEntitySelect]);
 
-    if (!isLocationAvailable) {
-        return (
-            <YStack position='relative' style={style} justifyContent='center' alignItems='center' bg='$background'>
-                <Text textAlign='center' color='$color11' maxWidth={280}>
-                    {locationUnavailableMessage}
-                </Text>
-            </YStack>
-        );
-    }
     if (Platform.OS === 'web') {
         return (
             <YStack position='relative' style={style}>
@@ -322,19 +372,7 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                         filter={['has', 'point_count']}
                         style={{
                             circleRadius: ['interpolate', ['linear'], ['get', 'point_count'], 1, 16, 100, 30, 1000, 44],
-                            circleColor: [
-                                'case',
-                                ['>=', ['get', 'market_count'], ['get', 'aid_count']],
-                                ['>=', ['get', 'market_count'], ['get', 'govern_count']],
-                                ['>=', ['get', 'market_count'], ['get', 'jobs_count']],
-                                '#22c55e',
-                                ['>=', ['get', 'aid_count'], ['get', 'govern_count']],
-                                ['>=', ['get', 'aid_count'], ['get', 'jobs_count']],
-                                '#06b6d4',
-                                ['>=', ['get', 'govern_count'], ['get', 'jobs_count']],
-                                '#a855f7',
-                                '#f59e0b',
-                            ] as any,
+                            circleColor: getDominantLayerColorExpression(),
                             circleOpacity: 0.86,
                             circleStrokeColor: '#0f172a',
                             circleStrokeWidth: 2,
@@ -361,8 +399,8 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                             id='user-location-pulse'
                             style={{
                                 circleColor: '#22c55e',
-                                circleRadius: 14,
-                                circleOpacity: 0.25,
+                                circleRadius: ['interpolate', ['linear'], ['zoom'], 0, 8, 20, 16],
+                                circleOpacity: 0.22,
                             }}
                         />
                         <MapLibreGL.CircleLayer
