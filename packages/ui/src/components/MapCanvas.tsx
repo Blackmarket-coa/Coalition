@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import Config from 'react-native-config';
 import { Text, YStack } from 'tamagui';
+import ProposalSheet, { GovernanceProposalFeature } from './ProposalSheet';
 
 export type SpatialLayer = 'market' | 'jobs' | 'govern' | 'aid';
 
@@ -47,6 +48,7 @@ interface MapCanvasProps {
     initialZoom?: number;
     initialCenter?: [number, number];
     style?: object;
+    governanceEndpoint?: string;
 }
 
 const DEFAULT_TILE_URL = 'https://tiles.example.com';
@@ -123,6 +125,7 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
         initialZoom = 11,
         initialCenter = [-121.4944, 38.5816],
         style,
+        governanceEndpoint = `${String(Config.BLACKSTAR_GATEWAY_HOST || '').replace(/\/$/, '')}/api/v1/spatial/governance`,
     },
     ref
 ) {
@@ -131,7 +134,51 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
     const shapeSourceRef = useRef<any>(null);
     const webMapRef = useRef<any>(null);
     const webMapContainerRef = useRef<View | null>(null);
+    const governanceSourceRef = useRef<any>(null);
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+    const [governanceFeatures, setGovernanceFeatures] = useState<GovernanceProposalFeature[]>([]);
+    const [selectedProposal, setSelectedProposal] = useState<GovernanceProposalFeature | null>(null);
+    const [pulseOn, setPulseOn] = useState(true);
+
+    const governanceFeatureCollection = useMemo(
+        () => ({ type: 'FeatureCollection', features: governanceFeatures }) as const,
+        [governanceFeatures]
+    );
+
+    useEffect(() => {
+        const timer = setInterval(() => setPulseOn((curr) => !curr), 900);
+        return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchGovernance = async () => {
+            if (!governanceEndpoint || governanceEndpoint === '/api/v1/spatial/governance') {
+                return;
+            }
+
+            try {
+                const response = await fetch(governanceEndpoint, { headers: { Accept: 'application/json' } });
+                if (!response.ok) return;
+                const payload = await response.json();
+                const nextFeatures = Array.isArray(payload?.features) ? payload.features : [];
+                if (!cancelled) {
+                    setGovernanceFeatures(nextFeatures);
+                }
+            } catch (error) {
+                console.warn('Unable to fetch governance proposals:', error);
+            }
+        };
+
+        fetchGovernance();
+        const interval = setInterval(fetchGovernance, 30000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [governanceEndpoint]);
 
     const zoomToNativeClusterBounds = useCallback(async (clusterFeature: any) => {
         const clusterId = clusterFeature?.properties?.cluster_id;
@@ -256,6 +303,8 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                     },
                 } as any);
 
+                map.addSource('governance-proposals', { type: 'geojson', data: governanceFeatureCollection as any });
+
                 map.addLayer({
                     id: 'clusters',
                     type: 'circle',
@@ -271,6 +320,17 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                 } as any);
 
                 map.addLayer({
+                    id: 'governance-closing-pulse',
+                    type: 'circle',
+                    source: 'governance-proposals',
+                    paint: {
+                        'circle-radius': ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 18 : 10, 0],
+                        'circle-color': '#f59e0b',
+                        'circle-opacity': ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 0.3 : 0.12, 0],
+                    },
+                } as any);
+
+                map.addLayer({
                     id: 'points',
                     type: 'symbol',
                     source: 'spatial-feed',
@@ -282,10 +342,33 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                     },
                 } as any);
 
+                map.addLayer({
+                    id: 'governance-votes',
+                    type: 'symbol',
+                    source: 'governance-proposals',
+                    layout: {
+                        'text-field': '🗳',
+                        'text-size': 18,
+                        'text-allow-overlap': true,
+                    },
+                    paint: {
+                        'text-color': '#f8fafc',
+                        'text-halo-color': '#0f172a',
+                        'text-halo-width': 1,
+                    },
+                } as any);
+
                 map.on('click', 'points', (e: any) => {
                     const hit = e.features?.[0];
                     if (hit) {
                         onEntitySelect(hit as GeoJSONPointFeature);
+                    }
+                });
+
+                map.on('click', 'governance-votes', (e: any) => {
+                    const hit = e.features?.[0];
+                    if (hit) {
+                        setSelectedProposal(hit as GovernanceProposalFeature);
                     }
                 });
 
@@ -320,7 +403,27 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
             webMapRef.current?.remove?.();
             webMapRef.current = null;
         };
-    }, [features, initialCenter, initialZoom, mapStyle, onEntitySelect]);
+    }, [features, governanceFeatureCollection, initialCenter, initialZoom, mapStyle, onEntitySelect]);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || !webMapRef.current) {
+            return;
+        }
+
+        const map = webMapRef.current;
+        map.getSource('spatial-feed')?.setData?.(features as any);
+        map.getSource('governance-proposals')?.setData?.(governanceFeatureCollection as any);
+    }, [features, governanceFeatureCollection]);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || !webMapRef.current) {
+            return;
+        }
+
+        const map = webMapRef.current;
+        map.setPaintProperty?.('governance-closing-pulse', 'circle-radius', ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 18 : 10, 0]);
+        map.setPaintProperty?.('governance-closing-pulse', 'circle-opacity', ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 0.3 : 0.12, 0]);
+    }, [pulseOn]);
 
     if (!isLocationAvailable) {
         return (
@@ -328,17 +431,6 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
                 <Text textAlign='center' color='$color11' maxWidth={280}>
                     {locationUnavailableMessage}
                 </Text>
-            </YStack>
-        );
-    }
-
-    if (Platform.OS === 'web') {
-        return (
-            <YStack position='relative' style={style}>
-                <View ref={webMapContainerRef} style={styles.map} />
-                <YStack position='absolute' top={10} left={10} backgroundColor='$backgroundStrong' borderRadius='$3' padding='$2'>
-                    <Text fontSize={12}>Features: {features.features.length}</Text>
-                </YStack>
             </YStack>
         );
     }
@@ -358,88 +450,116 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>(function MapCa
 
     return (
         <YStack position='relative' style={style}>
-            <MapLibreGL.MapView style={styles.map} mapStyle={mapStyle as any} attributionEnabled={false} logoEnabled={false}>
-                <MapLibreGL.Camera ref={cameraRef} centerCoordinate={initialCenter} zoomLevel={initialZoom} />
+            {Platform.OS === 'web' ? <View ref={webMapContainerRef} style={styles.map} /> : null}
 
-                <MapLibreGL.ShapeSource
-                    id='spatial-feed-source'
-                    ref={shapeSourceRef}
-                    shape={features as any}
-                    cluster
-                    clusterMaxZoomLevel={14}
-                    clusterRadius={50}
-                    clusterProperties={{
-                        market_count: [
-                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'market'], 1, 0]],
-                            ['case', ['==', ['get', 'layer'], 'market'], 1, 0],
-                        ],
-                        jobs_count: [
-                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0]],
-                            ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0],
-                        ],
-                        govern_count: [
-                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'govern'], 1, 0]],
-                            ['case', ['==', ['get', 'layer'], 'govern'], 1, 0],
-                        ],
-                        aid_count: [
-                            ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'aid'], 1, 0]],
-                            ['case', ['==', ['get', 'layer'], 'aid'], 1, 0],
-                        ],
-                    }}
-                    onPress={handleNativeShapePress}
-                >
-                    <MapLibreGL.CircleLayer
-                        id='clustered-circles'
-                        filter={['has', 'point_count']}
-                        style={{
-                            circleRadius: ['interpolate', ['linear'], ['get', 'point_count'], 1, 16, 100, 30, 1000, 44],
-                            circleColor: getDominantLayerColorExpression(),
-                            circleOpacity: 0.86,
-                            circleStrokeColor: '#0f172a',
-                            circleStrokeWidth: 2,
+            {Platform.OS !== 'web' ? (
+                <MapLibreGL.MapView style={styles.map} mapStyle={mapStyle as any} attributionEnabled={false} logoEnabled={false}>
+                    <MapLibreGL.Camera ref={cameraRef} centerCoordinate={initialCenter} zoomLevel={initialZoom} />
+
+                    <MapLibreGL.ShapeSource
+                        id='spatial-feed-source'
+                        ref={shapeSourceRef}
+                        shape={features as any}
+                        cluster
+                        clusterMaxZoomLevel={14}
+                        clusterRadius={50}
+                        clusterProperties={{
+                            market_count: [
+                                ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'market'], 1, 0]],
+                                ['case', ['==', ['get', 'layer'], 'market'], 1, 0],
+                            ],
+                            jobs_count: [
+                                ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0]],
+                                ['case', ['==', ['get', 'layer'], 'jobs'], 1, 0],
+                            ],
+                            govern_count: [
+                                ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'govern'], 1, 0]],
+                                ['case', ['==', ['get', 'layer'], 'govern'], 1, 0],
+                            ],
+                            aid_count: [
+                                ['+', ['accumulated'], ['case', ['==', ['get', 'layer'], 'aid'], 1, 0]],
+                                ['case', ['==', ['get', 'layer'], 'aid'], 1, 0],
+                            ],
                         }}
-                    />
-
-                    <MapLibreGL.SymbolLayer
-                        id='unclustered-symbols'
-                        filter={['!', ['has', 'point_count']]}
-                        style={{
-                            iconImage: ['get', 'icon'],
-                            iconSize: 0.8,
-                            iconAllowOverlap: true,
-                            iconIgnorePlacement: true,
-                        }}
-                    />
-                </MapLibreGL.ShapeSource>
-
-                {locationPermissionGranted && <MapLibreGL.UserLocation visible showsUserHeadingIndicator />}
-
-                {locationPermissionGranted && userLocationShape ? (
-                    <MapLibreGL.ShapeSource id='user-location-source' shape={userLocationShape as any}>
+                        onPress={handleNativeShapePress}
+                    >
                         <MapLibreGL.CircleLayer
-                            id='user-location-pulse'
+                            id='clustered-circles'
+                            filter={['has', 'point_count']}
                             style={{
-                                circleColor: '#22c55e',
-                                circleRadius: ['interpolate', ['linear'], ['zoom'], 0, 8, 20, 16],
-                                circleOpacity: 0.22,
+                                circleRadius: ['interpolate', ['linear'], ['get', 'point_count'], 1, 16, 100, 30, 1000, 44],
+                                circleColor: getDominantLayerColorExpression(),
+                                circleOpacity: 0.86,
+                                circleStrokeColor: '#0f172a',
+                                circleStrokeWidth: 2,
                             }}
                         />
-                        <MapLibreGL.CircleLayer
-                            id='user-location-dot'
+
+                        <MapLibreGL.SymbolLayer
+                            id='unclustered-symbols'
+                            filter={['!', ['has', 'point_count']]}
                             style={{
-                                circleColor: '#22c55e',
-                                circleRadius: 6,
-                                circleStrokeWidth: 2,
-                                circleStrokeColor: '#ecfdf5',
+                                iconImage: ['get', 'icon'],
+                                iconSize: 0.8,
+                                iconAllowOverlap: true,
+                                iconIgnorePlacement: true,
                             }}
                         />
                     </MapLibreGL.ShapeSource>
-                ) : null}
-            </MapLibreGL.MapView>
+
+                    <MapLibreGL.ShapeSource id='governance-source' ref={governanceSourceRef} shape={governanceFeatureCollection as any} onPress={(e) => setSelectedProposal(e.features?.[0] as GovernanceProposalFeature)}>
+                        <MapLibreGL.CircleLayer
+                            id='governance-closing-pulse-native'
+                            style={{
+                                circleRadius: ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 18 : 10, 0],
+                                circleColor: '#f59e0b',
+                                circleOpacity: ['case', ['==', ['get', 'is_closing_soon'], true], pulseOn ? 0.3 : 0.12, 0],
+                            }}
+                        />
+                        <MapLibreGL.SymbolLayer
+                            id='governance-vote-symbols'
+                            style={{
+                                textField: '🗳',
+                                textSize: 18,
+                                textAllowOverlap: true,
+                                textColor: '#f8fafc',
+                                textHaloColor: '#0f172a',
+                                textHaloWidth: 1,
+                            }}
+                        />
+                    </MapLibreGL.ShapeSource>
+
+                    {locationPermissionGranted && <MapLibreGL.UserLocation visible showsUserHeadingIndicator />}
+
+                    {locationPermissionGranted && userLocationShape ? (
+                        <MapLibreGL.ShapeSource id='user-location-source' shape={userLocationShape as any}>
+                            <MapLibreGL.CircleLayer
+                                id='user-location-pulse'
+                                style={{
+                                    circleColor: '#22c55e',
+                                    circleRadius: ['interpolate', ['linear'], ['zoom'], 0, 8, 20, 16],
+                                    circleOpacity: 0.22,
+                                }}
+                            />
+                            <MapLibreGL.CircleLayer
+                                id='user-location-dot'
+                                style={{
+                                    circleColor: '#22c55e',
+                                    circleRadius: 6,
+                                    circleStrokeWidth: 2,
+                                    circleStrokeColor: '#ecfdf5',
+                                }}
+                            />
+                        </MapLibreGL.ShapeSource>
+                    ) : null}
+                </MapLibreGL.MapView>
+            ) : null}
 
             <YStack position='absolute' top={10} left={10} backgroundColor='$backgroundStrong' borderRadius='$3' padding='$2'>
-                <Text fontSize={12}>Features: {features.features.length}</Text>
+                <Text fontSize={12}>Features: {features.features.length} · Proposals: {governanceFeatures.length}</Text>
             </YStack>
+
+            <ProposalSheet proposal={selectedProposal} visible={Boolean(selectedProposal)} onClose={() => setSelectedProposal(null)} />
         </YStack>
     );
 });

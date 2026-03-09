@@ -241,7 +241,7 @@ class VotingEngine extends EventEmitter {
         super();
     }
 
-    async castVote(roomId: string, proposalId: string, voterId: string, ballot: Ballot): Promise<void> {
+    async castBallot(roomId: string, proposalId: string, voterId: string, ballot: Ballot): Promise<void> {
         const vote: VoteRecord = { proposalId, voterId, ballot, ts: Date.now() };
         await this.sqlite.upsertVote(vote);
 
@@ -434,7 +434,7 @@ export const useVoting = (proposalId: string) => {
     return {
         votes,
         tally,
-        castVote: votingEngine?.castVote.bind(votingEngine),
+        castBallot: votingEngine?.castBallot.bind(votingEngine),
         hasQuorum: votingEngine?.hasQuorum.bind(votingEngine),
     };
 };

@@ -13,3 +13,5 @@ export { default as LocationPrivacySection } from './components/LocationPrivacyS
 export { default as VerticalVideoFeed } from './components/VerticalVideoFeed';
 
 export { default as ChatPanel } from './components/ChatPanel';
+
+export { default as ProposalSheet } from './components/ProposalSheet';
