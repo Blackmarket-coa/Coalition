@@ -3,3 +3,6 @@ export * from './components/BackButton';
 export * from './components/HeaderButton';
 export * from './components/Spacer';
 export * from './components/Content';
+
+export { default as MapCanvas } from './components/MapCanvas';
+export type { MapCanvasRef, GeoJSONFeatureCollection, GeoJSONPointFeature, MapCanvasFeatureProperties } from './components/MapCanvas';
