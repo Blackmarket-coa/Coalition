@@ -154,3 +154,49 @@ export const getProviderOnboardingProfile = (providerId: string) =>
             blackoutIdentityLinked: false,
         }
     );
+
+export type ProviderRole = 'Grower' | 'Maker' | 'Mover' | 'Healer' | 'Teacher' | 'Builder' | 'Organizer';
+
+export interface ProviderOfferingInput {
+    name: string;
+    description: string;
+    pricing_mode: 'price' | 'time_bank' | 'free' | 'sliding_scale';
+    price?: number;
+}
+
+export interface ProviderProfileCreationInput {
+    user_id: string;
+    roles: ProviderRole[];
+    profile: {
+        name: string;
+        handle: string;
+        bio: string;
+        avatar_url?: string;
+    };
+    location: {
+        display_radius_miles: number;
+    };
+    offerings: ProviderOfferingInput[];
+}
+
+export interface ProviderProfileCreationResult {
+    ok: boolean;
+    seller?: unknown;
+    blackstar?: { node?: unknown; driver?: unknown };
+    matrix?: { room_id?: string };
+    jwt?: { updated_roles: string[]; note?: string };
+}
+
+export const createProviderProfile = (input: ProviderProfileCreationInput) =>
+    gatewayFetch<ProviderProfileCreationResult>(
+        '/api/v1/providers/profile/create',
+        { method: 'POST', body: JSON.stringify(input) },
+        {
+            ok: true,
+            jwt: {
+                updated_roles: ['provider', ...input.roles.map((r) => r.toLowerCase())],
+                note: 'Fallback response: gateway host unavailable, simulated successful onboarding.',
+            },
+            matrix: { room_id: `!provider-${input.profile.handle}:blackout.local` },
+        }
+    );

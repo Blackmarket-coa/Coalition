@@ -58,6 +58,17 @@ export interface BlackstarDriver {
     status?: string | null;
 }
 
+export interface BlackstarNodeCreateInput {
+    name: string;
+    capabilities: string[];
+    trust_score?: number;
+}
+
+export interface BlackstarDriverCreateInput {
+    user_ref: string;
+    node_id?: string;
+    status?: string;
+}
 export interface BlackstarFleet {
     id: string;
     name: string;
@@ -179,6 +190,30 @@ export class BlackstarApiClient {
             method: 'POST',
             body: JSON.stringify(input),
         });
+    }
+
+    async createNode(input: BlackstarNodeCreateInput): Promise<BlackstarNode> {
+        const data = await this.request<{ data?: BlackstarNode; node?: BlackstarNode }>('/api/v1/nodes', {
+            method: 'POST',
+            body: JSON.stringify(input),
+        });
+        const node = data.data ?? data.node;
+        if (!node) {
+            throw new BlackstarApiError('Blackstar API returned no node payload', 500, data);
+        }
+        return node;
+    }
+
+    async registerDriver(input: BlackstarDriverCreateInput): Promise<BlackstarDriver> {
+        const data = await this.request<{ data?: BlackstarDriver; driver?: BlackstarDriver }>('/api/v1/drivers', {
+            method: 'POST',
+            body: JSON.stringify(input),
+        });
+        const driver = data.data ?? data.driver;
+        if (!driver) {
+            throw new BlackstarApiError('Blackstar API returned no driver payload', 500, data);
+        }
+        return driver;
     }
 
     async listNodes(): Promise<BlackstarNode[]> {
