@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withT
 import Config from 'react-native-config';
 import { Button, Circle, Image, Paragraph, Text, XStack, YStack } from 'tamagui';
 import ChatPanel from './ChatPanel';
-import { createFeedRequestUrl, CtaModule, FeedEvent, FeedItem, FeedRequestParams, handleCommentAction, injectCtaCards, RenderFeedItem, toFeedItem } from './vertical-feed-utils';
+import { createFeedRequestUrl, CtaModule, FeedEvent, FeedItem, FeedRequestParams, filterVisibleFeedItems, getTrustSignal, handleCommentAction, injectCtaCards, RenderFeedItem, toFeedItem } from './vertical-feed-utils';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,6 +20,8 @@ type VerticalVideoFeedProps = {
     onMissingRoom?: (item: FeedItem) => void;
     onOpenCta?: (module: CtaModule) => void;
     onShare?: (item: FeedItem) => void;
+    onTakeAction?: (item: FeedItem) => void;
+    onReport?: (item: FeedItem) => void;
 };
 
 const solarpunk = {
@@ -72,7 +74,7 @@ const CtaCard = ({ item, height, onOpenCta }: { item: RenderFeedItem; height: nu
     );
 };
 
-export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare }: VerticalVideoFeedProps) => {
+export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport }: VerticalVideoFeedProps) => {
     const [items, setItems] = useState<FeedItem[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const [expandedCaptionId, setExpandedCaptionId] = useState<string | null>(null);
@@ -98,7 +100,8 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
             if (!response.ok) throw new Error(`Feed request failed (${response.status})`);
             const payload = await response.json();
             const events = (payload?.videos ?? payload?.events ?? []) as FeedEvent[];
-            setItems(events.filter((event) => Boolean(event?.content?.url)).map(toFeedItem));
+            const nextItems = events.filter((event) => Boolean(event?.content?.url)).map(toFeedItem);
+            setItems(filterVisibleFeedItems(nextItems));
         } catch (error) {
             setErrorMessage('Unable to load feed right now.');
             console.warn('Unable to fetch video feed:', error);
@@ -162,6 +165,11 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
                         <XStack alignItems='center' gap='$2'><Text color={solarpunk.white} fontWeight='800'>{feedItem.creatorName}</Text><Text color={solarpunk.accentGreen}>@{feedItem.creatorHandle}</Text></XStack>
                         <Pressable onPress={() => setExpandedCaptionId((prev) => (prev === feedItem.id ? null : feedItem.id))}><Paragraph color={solarpunk.white} numberOfLines={isExpanded ? undefined : 3}>{feedItem.caption}</Paragraph></Pressable>
                         <XStack alignSelf='flex-start' px='$2' py='$1' borderRadius={999} bg='rgba(35,193,107,0.2)' borderWidth={1} borderColor={solarpunk.accentGreen}><Text color={solarpunk.accentGreen} fontSize={12}>Blackout Room · {feedItem.roomId}</Text></XStack>
+                        <XStack alignItems='center' justifyContent='space-between'>
+                            <Text color={solarpunk.dim} fontSize={12}>{getTrustSignal(feedItem)} · {feedItem.reportCount} reports</Text>
+                            <Pressable onPress={() => onReport?.(feedItem)}><Text color={solarpunk.accentGold} fontSize={12}>Report</Text></Pressable>
+                        </XStack>
+                        <Button size='$3' onPress={() => onTakeAction?.(feedItem)}>Take Action</Button>
                     </YStack>
                 </YStack>
             </Pressable>

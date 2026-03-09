@@ -5,6 +5,7 @@ import { useChat } from '../contexts/ChatContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import useLocationConsent from '../hooks/use-location-consent';
 import { executeEcosystemAction, EcosystemAction } from '../services/action-router';
+import { trackConversionEvent } from '../services/conversion-analytics';
 
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
@@ -32,7 +33,19 @@ const SocialFeedScreen = ({ navigation }) => {
         <VerticalVideoFeed
             requestParams={requestParams}
             onMissingRoom={() => Alert.alert('Room unavailable', 'Comments are unavailable for this video right now.')}
+            onReport={(item) => {
+                trackConversionEvent('abuse_report_submitted', { feed_item_id: item.id, room_id: item.roomId });
+                Alert.alert('Report submitted', 'Thanks for helping keep Coalition safe.');
+            }}
+            onTakeAction={async (item) => {
+                trackConversionEvent('take_action_clicked', { source: 'feed_item', feed_item_id: item.id, room_id: item.roomId });
+                const result = await executeEcosystemAction({ type: 'OPEN_PROPOSAL', payload: { proposalId: item.id } }, { navigate: navigation.navigate });
+                if (!result.ok) {
+                    Alert.alert('Action unavailable', 'Unable to open action for this post.');
+                }
+            }}
             onOpenCta={async (module) => {
+                trackConversionEvent('take_action_clicked', { source: 'feed_cta', module });
                 const result = await executeEcosystemAction(ctaToAction(module), {
                     navigate: navigation.navigate,
                     onUnhandled: (_action, reason) => Alert.alert('Action unavailable', reason),

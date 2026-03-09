@@ -2,6 +2,7 @@ export type FeedEvent = {
     event_id: string;
     room_id?: string;
     sender: string;
+    visibility?: 'public' | 'private' | 'blocked';
     content: {
         url: string;
         room_id?: string;
@@ -12,6 +13,8 @@ export type FeedEvent = {
         like_count?: number;
         comment_count?: number;
         caption?: string;
+        trust_score?: number;
+        report_count?: number;
     };
     engagement_score?: number;
 };
@@ -26,6 +29,9 @@ export type FeedItem = {
     likeCount: number;
     commentCount: number;
     caption: string;
+    visibility: 'public' | 'private' | 'blocked';
+    trustScore: number;
+    reportCount: number;
 };
 
 export type FeedRequestParams = {
@@ -73,7 +79,21 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         likeCount: Number(event.content?.like_count ?? 0),
         commentCount: Number(event.content?.comment_count ?? 0),
         caption: event.content?.caption ?? event.content?.body ?? '',
+        visibility: event.visibility ?? 'public',
+        trustScore: Number(event.content?.trust_score ?? 50),
+        reportCount: Number(event.content?.report_count ?? 0),
     };
+}
+
+export function filterVisibleFeedItems(items: FeedItem[], options: { hideReportedThreshold?: number } = {}) {
+    const threshold = options.hideReportedThreshold ?? 5;
+    return items.filter((item) => item.visibility !== 'blocked' && item.reportCount < threshold);
+}
+
+export function getTrustSignal(item: FeedItem) {
+    if (item.trustScore >= 80) return 'Trusted creator';
+    if (item.trustScore >= 50) return 'Community verified';
+    return 'Limited trust signal';
 }
 
 export function createFeedRequestUrl(baseEndpoint: string, params: FeedRequestParams = {}) {
