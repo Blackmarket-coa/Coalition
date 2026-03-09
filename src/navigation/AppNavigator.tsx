@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Boot, LocationPermission, InstanceLink } from './stacks/CoreStack';
 import AuthStack from './stacks/AuthStack';
 import DriverNavigator from './DriverNavigator';
-import { useIsNotAuthenticated, useIsAuthenticated } from '../contexts/AuthContext';
+import { useIsNotAuthenticated, useIsAuthenticated } from '@blackstar/core/src/contexts/AuthContext';
 import AppLayout from '../layouts/AppLayout';
 
 const RootStack = createNativeStackNavigator({

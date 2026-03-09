@@ -6,12 +6,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import { last, abbreviateName, later } from '../utils';
 import { formatWhatsAppTimestamp } from '../utils/format';
-import { useChat } from '../contexts/ChatContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '@blackstar/core/src/contexts/ChatContext';
+import { useAuth } from '@blackstar/core/src/contexts/AuthContext';
 import useSocketClusterClient from '../hooks/use-socket-cluster-client';
-import ChatFeed from '../components/ChatFeed';
-import ChatKeyboard from '../components/ChatKeyboard';
-import ChatParticipants from '../components/ChatParticipants';
+import ChatFeed from '@blackstar/ui/src/components/ChatFeed';
+import ChatKeyboard from '@blackstar/ui/src/components/ChatKeyboard';
+import ChatParticipants from '@blackstar/ui/src/components/ChatParticipants';
 
 const ChatChannelScreen = ({ route }) => {
     const theme = useTheme();

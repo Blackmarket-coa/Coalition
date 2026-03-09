@@ -6,10 +6,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { last } from '../utils';
 import { formatWhatsAppTimestamp } from '../utils/format';
-import { useChat } from '../contexts/ChatContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '@blackstar/core/src/contexts/ChatContext';
+import { useAuth } from '@blackstar/core/src/contexts/AuthContext';
 import useSocketClusterClient from '../hooks/use-socket-cluster-client';
-import ChatParticipantAvatar from '../components/ChatParticipantAvatar';
+import ChatParticipantAvatar from '@blackstar/ui/src/components/ChatParticipantAvatar';
 
 const ChatHomeScreen = () => {
     const theme = useTheme();

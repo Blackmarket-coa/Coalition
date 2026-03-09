@@ -5,16 +5,9 @@ import { StyleSheet, Platform } from 'react-native';
 import { BlurView } from '@react-native-community/blur';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
-    faHome,
-    faGaugeHigh,
-    faComments,
     faWalkieTalkie,
     faClipboardList,
-    faClipboard,
-    faChartLine,
     faUser,
-    faTriangleExclamation,
-    faFlag,
     faTimes,
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme, Text, View, XStack, Image } from 'tamagui';
@@ -22,20 +15,12 @@ import { navigatorConfig, get, config, toArray, getTheme } from '../utils';
 import { configCase } from '../utils/format';
 import { format } from 'date-fns';
 import { PortalHost } from '@gorhom/portal';
-import { useIsNotAuthenticated, useIsAuthenticated } from '../contexts/AuthContext';
-import { useTempStore } from '../contexts/TempStoreContext';
-import DriverDashboardScreen from '../screens/DriverDashboardScreen';
+import { useIsNotAuthenticated, useIsAuthenticated } from '@blackstar/core/src/contexts/AuthContext';
+import { useTempStore } from '@blackstar/core/src/contexts/TempStoreContext';
 import DriverOrderManagementScreen from '../screens/DriverOrderManagementScreen';
 import OrderScreen from '../screens/OrderScreen';
 import EntityScreen from '../screens/EntityScreen';
 import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
-import DriverReportScreen from '../screens/DriverReportScreen';
-import CreateIssueScreen from '../screens/CreateIssueScreen';
-import EditIssueScreen from '../screens/EditIssueScreen';
-import IssueScreen from '../screens/IssueScreen';
-import CreateFuelReportScreen from '../screens/CreateFuelReportScreen';
-import EditFuelReportScreen from '../screens/EditFuelReportScreen';
-import FuelReportScreen from '../screens/FuelReportScreen';
 import ChatHomeScreen from '../screens/ChatHomeScreen';
 import ChatChannelScreen from '../screens/ChatChannelScreen';
 import ChatParticipantsScreen from '../screens/ChatParticipantsScreen';
@@ -43,28 +28,21 @@ import CreateChatChannelScreen from '../screens/CreateChatChannelScreen';
 import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverAccountScreen from '../screens/DriverAccountScreen';
 import ProviderOnboardingScreen from '../screens/ProviderOnboardingScreen';
-import { useOrderManager } from '../contexts/OrderManagerContext';
-import { useChat } from '../contexts/ChatContext';
+import { useOrderManager } from '@blackstar/core/src/contexts/OrderManagerContext';
+import { useChat } from '@blackstar/core/src/contexts/ChatContext';
 import useAppTheme from '../hooks/use-app-theme';
 import DriverLayout from '../layouts/DriverLayout';
-import DriverOnlineToggle from '../components/DriverOnlineToggle';
-import BackButton from '../components/BackButton';
-import HeaderButton from '../components/HeaderButton';
-import Badge from '../components/Badge';
+import DriverOnlineToggle from '@blackstar/ui/src/components/DriverOnlineToggle';
+import BackButton from '@blackstar/ui/src/components/BackButton';
+import HeaderButton from '@blackstar/ui/src/components/HeaderButton';
+import Badge from '@blackstar/ui/src/components/Badge';
 import DeviceInfo from 'react-native-device-info';
 
 const isAndroid = Platform.OS === 'android';
 const importedIconsMap = {
-    faHome,
-    faGaugeHigh,
-    faComments,
     faWalkieTalkie,
     faClipboardList,
-    faClipboard,
-    faChartLine,
     faUser,
-    faTriangleExclamation,
-    faFlag,
 };
 
 function getTabConfig(name, key, defaultValue = null) {
@@ -78,14 +56,8 @@ function getTabConfig(name, key, defaultValue = null) {
 }
 
 function createTabScreens() {
-    const tabs = toArray(navigatorConfig('driverNavigator.tabs', 'DriverDashboardTab,DriverTaskTab,DriverReportTab,DriverChatTab,DriverAccountTab'));
+    const tabs = toArray(navigatorConfig('driverNavigator.tabs', 'DriverTaskTab,DriverChatTab,DriverAccountTab'));
     const screens = {
-        DriverDashboardTab: {
-            screen: DriverDashboardTab,
-            options: {
-                tabBarLabel: config('DRIVER_DASHBOARD_TAB_LABEL', 'Dash'),
-            },
-        },
         DriverTaskTab: {
             screen: DriverTaskTab,
             options: () => {
@@ -98,14 +70,6 @@ function createTabScreens() {
                         marginRight: -5,
                         opacity: allActiveOrders.length ? 1 : 0.5,
                     },
-                };
-            },
-        },
-        DriverReportTab: {
-            screen: DriverReportTab,
-            options: () => {
-                return {
-                    tabBarLabel: config('DRIVER_REPORT_TAB_LABEL', 'Reports'),
                 };
             },
         },
@@ -154,14 +118,8 @@ function getDefaultTabIcon(routeName) {
 
     let icon;
     switch (routeName) {
-        case 'DriverDashboardTab':
-            icon = faGaugeHigh;
-            break;
         case 'DriverTaskTab':
             icon = faClipboardList;
-            break;
-        case 'DriverReportTab':
-            icon = faFlag;
             break;
         case 'DriverChatTab':
             icon = faWalkieTalkie;
@@ -195,20 +153,6 @@ function getDriverNavigatorHeaderOptions({ route, navigation }) {
         headerShadowVisible: false,
     };
 }
-
-const DriverDashboardTab = createNativeStackNavigator({
-    initialRouteName: 'DriverDashboard',
-    screens: {
-        DriverDashboard: {
-            screen: DriverDashboardScreen,
-            options: ({ route, navigation }) => {
-                return {
-                    headerShown: false,
-                };
-            },
-        },
-    },
-});
 
 const DriverTaskTab = createNativeStackNavigator({
     initialRouteName: 'DriverOrderManagement',
@@ -282,148 +226,6 @@ const DriverTaskTab = createNativeStackNavigator({
             options: ({ route, navigation }) => {
                 return {
                     headerShown: false,
-                };
-            },
-        },
-    },
-});
-
-const DriverReportTab = createNativeStackNavigator({
-    initialRouteName: 'DriverReport',
-    screens: {
-        DriverReport: {
-            screen: DriverReportScreen,
-            options: ({ route, navigation }) => {
-                return {
-                    headerShown: false,
-                };
-            },
-        },
-        CreateFuelReport: {
-            screen: CreateFuelReportScreen,
-            options: ({ route, navigation }) => {
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={20} fontWeight='bold'>
-                            Create a new Fuel Report
-                        </Text>
-                    ),
-                    headerRight: (props) => <HeaderButton icon={faTimes} onPress={() => navigation.goBack()} />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
-                };
-            },
-        },
-        EditFuelReport: {
-            screen: EditFuelReportScreen,
-            options: ({ route, navigation }) => {
-                const params = route.params || {};
-                const fuelReport = params.fuelReport;
-
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={18} fontWeight='bold' numberOfLines={1}>
-                            Edit Fuel Report from {format(new Date(fuelReport.created_at), 'MMM dd, yyyy HH:mm')}
-                        </Text>
-                    ),
-                    headerRight: (props) => <HeaderButton icon={faTimes} onPress={() => navigation.goBack()} />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
-                };
-            },
-        },
-        FuelReport: {
-            screen: FuelReportScreen,
-            options: ({ route, navigation }) => {
-                const {
-                    store: { fuelReport },
-                } = useTempStore();
-
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={18} fontWeight='bold' numberOfLines={1}>
-                            {format(new Date(fuelReport.created_at), 'MMM dd, yyyy HH:mm')}
-                        </Text>
-                    ),
-                    headerRight: (props) => <PortalHost name='FuelReportScreenHeaderRightPortal' />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
-                };
-            },
-        },
-        CreateIssue: {
-            screen: CreateIssueScreen,
-            options: ({ route, navigation }) => {
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={20} fontWeight='bold'>
-                            Create a new Issue
-                        </Text>
-                    ),
-                    headerRight: (props) => <HeaderButton icon={faTimes} onPress={() => navigation.goBack()} />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
-                };
-            },
-        },
-        EditIssue: {
-            screen: EditIssueScreen,
-            options: ({ route, navigation }) => {
-                const params = route.params || {};
-                const issue = params.issue;
-
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={18} fontWeight='bold' numberOfLines={1}>
-                            Edit Issue from {format(new Date(issue.created_at), 'MMM dd, yyyy HH:mm')}
-                        </Text>
-                    ),
-                    headerRight: (props) => <HeaderButton icon={faTimes} onPress={() => navigation.goBack()} />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
-                };
-            },
-        },
-        Issue: {
-            screen: IssueScreen,
-            options: ({ route, navigation }) => {
-                const {
-                    store: { issue },
-                } = useTempStore();
-
-                return {
-                    presentation: 'modal',
-                    headerTitle: '',
-                    headerLeft: (props) => (
-                        <Text color='$textPrimary' fontSize={18} fontWeight='bold' numberOfLines={1}>
-                            {format(new Date(issue.created_at), 'MMM dd, yyyy HH:mm')}
-                        </Text>
-                    ),
-                    headerRight: (props) => <PortalHost name='IssueScreenHeaderRightPortal' />,
-                    headerStyle: {
-                        backgroundColor: getTheme('background'),
-                        headerTintColor: getTheme('borderColor'),
-                    },
                 };
             },
         },

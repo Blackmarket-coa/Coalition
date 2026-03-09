@@ -1,8 +1,10 @@
 {
-    "compilerOptions": {
-        "baseUrl": ".",
-        "paths": {
-            "*": ["*", "*.native", "*.web"]
-        }
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@blackstar/core/*": ["packages/core/*"],
+      "@blackstar/ui/*": ["packages/ui/*"],
+      "*": ["*", "*.native", "*.web"]
     }
+  }
 }

@@ -1,0 +1,232 @@
+{
+  "version": 8,
+  "name": "Dark Solarpunk",
+  "metadata": {
+    "theme": "dark-solarpunk",
+    "description": "Minimal organic dark map for logistics + neighborhood context"
+  },
+  "sprite": "{martin_url}/sprites/solarpunk",
+  "glyphs": "{martin_url}/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "martin": {
+      "type": "vector",
+      "tiles": [
+        "{martin_url}/tiles/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 0,
+      "maxzoom": 22
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#0a1a0f"
+      }
+    },
+    {
+      "id": "parks",
+      "type": "fill",
+      "source": "martin",
+      "source-layer": "landuse",
+      "filter": [
+        "in",
+        ["coalesce", ["get", "class"], ""],
+        ["literal", ["park", "grass", "wood", "forest", "greenfield", "recreation_ground", "meadow"]]
+      ],
+      "paint": {
+        "fill-color": "rgba(74,222,128,0.12)"
+      }
+    },
+    {
+      "id": "water-fill",
+      "type": "fill",
+      "source": "martin",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          "rgba(34,211,238,0.10)",
+          10,
+          "rgba(34,211,238,0.15)",
+          16,
+          "rgba(34,211,238,0.20)"
+        ]
+      }
+    },
+    {
+      "id": "water-halo",
+      "type": "line",
+      "source": "martin",
+      "source-layer": "water",
+      "paint": {
+        "line-color": "rgba(34,211,238,0.35)",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          0.5,
+          12,
+          1.4,
+          18,
+          3.0
+        ],
+        "line-blur": 1.4,
+        "line-opacity": 0.8
+      }
+    },
+    {
+      "id": "buildings-fill",
+      "type": "fill",
+      "source": "martin",
+      "source-layer": "building",
+      "paint": {
+        "fill-color": "rgba(74,222,128,0.08)"
+      }
+    },
+    {
+      "id": "buildings-outline",
+      "type": "line",
+      "source": "martin",
+      "source-layer": "building",
+      "paint": {
+        "line-color": "rgba(74,222,128,0.22)",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          0.3,
+          18,
+          0.9
+        ]
+      }
+    },
+    {
+      "id": "roads-minor",
+      "type": "line",
+      "source": "martin",
+      "source-layer": "transportation",
+      "filter": [
+        "!in",
+        ["coalesce", ["get", "class"], ""],
+        ["literal", ["motorway", "trunk", "primary", "secondary"]]
+      ],
+      "paint": {
+        "line-color": "#4ade80",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          0.35,
+          14,
+          1.1,
+          18,
+          2.2
+        ],
+        "line-opacity": 0.72
+      }
+    },
+    {
+      "id": "roads-major",
+      "type": "line",
+      "source": "martin",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        ["coalesce", ["get", "class"], ""],
+        ["literal", ["motorway", "trunk", "primary", "secondary"]]
+      ],
+      "paint": {
+        "line-color": "#86efac",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          0.7,
+          14,
+          1.8,
+          18,
+          3.2
+        ],
+        "line-opacity": 0.9
+      }
+    },
+    {
+      "id": "contours",
+      "type": "line",
+      "source": "martin",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "rgba(163,201,171,0.14)",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          0.2,
+          15,
+          0.6
+        ],
+        "line-dasharray": [1.2, 1.2],
+        "line-opacity": 0.5
+      }
+    },
+    {
+      "id": "place-labels",
+      "type": "symbol",
+      "source": "martin",
+      "source-layer": "place",
+      "layout": {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Nunito Sans Regular"],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          10,
+          12,
+          14
+        ]
+      },
+      "paint": {
+        "text-color": "#a3c9ab",
+        "text-halo-color": "rgba(10,26,15,0.85)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "road-labels",
+      "type": "symbol",
+      "source": "martin",
+      "source-layer": "transportation_name",
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Nunito Sans Regular"],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          10,
+          16,
+          12
+        ]
+      },
+      "paint": {
+        "text-color": "#a3c9ab",
+        "text-halo-color": "rgba(10,26,15,0.8)",
+        "text-halo-width": 0.8
+      }
+    }
+  ]
+}
