@@ -18,6 +18,7 @@ import CreateChatChannelScreen from '../screens/CreateChatChannelScreen';
 import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverAccountScreen from '../screens/DriverAccountScreen';
 import ProviderOnboardingScreen from '../screens/ProviderOnboardingScreen';
+import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
 import DriverLayout from '../layouts/DriverLayout';
 import { coalitionPrimaryTab } from './coalition-config';
 
@@ -68,6 +69,7 @@ const YouTab = createNativeStackNavigator({
         DriverProfile: { screen: DriverProfileScreen, options: { headerShown: false } },
         DriverAccount: { screen: DriverAccountScreen, options: { headerShown: false } },
         ProviderOnboarding: { screen: ProviderOnboardingScreen, options: { headerShown: false } },
+        PrivacySettings: { screen: PrivacySettingsScreen, options: { headerTitle: 'Privacy Settings' } },
     },
 });
 

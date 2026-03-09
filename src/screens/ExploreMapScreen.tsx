@@ -1,20 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
 import { Button, Text, YStack } from 'tamagui';
 import TestScreen from './TestScreen';
-import { LOCATION_CONSENT_STORAGE_KEY, shouldShowMapFallback } from '../services/onboarding';
+import useLocationConsent from '../hooks/use-location-consent';
 
 const ExploreMapScreen = ({ navigation }) => {
-    const [showFallback, setShowFallback] = useState(false);
-
-    useEffect(() => {
-        const loadConsent = async () => {
-            const consent = await AsyncStorage.getItem(LOCATION_CONSENT_STORAGE_KEY);
-            setShowFallback(shouldShowMapFallback(consent));
-        };
-
-        loadConsent();
-    }, []);
+    const { locationConsent } = useLocationConsent();
+    const showFallback = locationConsent.precision === 'off' || !locationConsent.granted;
 
     if (!showFallback) {
         return <TestScreen navigation={navigation} />;
@@ -23,10 +14,12 @@ const ExploreMapScreen = ({ navigation }) => {
     return (
         <YStack flex={1} justifyContent='center' px='$5' space='$3'>
             <Text fontSize={20} fontWeight='700'>
-                Map preview unavailable
+                Nearby map is limited
             </Text>
-            <Text color='$textSecondary'>Location sharing was skipped. You can still browse communities and enable location later in settings.</Text>
-            <Button onPress={() => navigation.navigate('You')}>Go to Profile</Button>
+            <Text color='$textSecondary'>
+                Location is currently off. Explore still works for global content, and you can enable approximate location in Privacy Settings anytime.
+            </Text>
+            <Button onPress={() => navigation.navigate('You', { screen: 'PrivacySettings' })}>Open Privacy Settings</Button>
         </YStack>
     );
 };

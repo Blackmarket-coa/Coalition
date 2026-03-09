@@ -3,22 +3,21 @@ import { Alert } from 'react-native';
 import { VerticalVideoFeed } from '@blackstar/ui';
 import { useChat } from '../contexts/ChatContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import useStorage from '../hooks/use-storage';
-import { LOCATION_CONSENT_STORAGE_KEY } from '../services/onboarding';
+import useLocationConsent from '../hooks/use-location-consent';
 
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
     const { locale } = useLanguage();
-    const [consentStatus] = useStorage<string>(LOCATION_CONSENT_STORAGE_KEY, 'unknown');
+    const { locationConsent } = useLocationConsent();
 
     const requestParams = useMemo(
         () => ({
             interests: ['Mutual Aid', 'Community Safety'],
-            consented_location_precision: consentStatus === 'granted' ? 'city' : 'none',
+            consented_location_precision: locationConsent.granted ? locationConsent.precision : 'none',
             joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
             language: locale ?? 'en',
         }),
-        [channels, locale, consentStatus]
+        [channels, locale, locationConsent]
     );
 
     return (
