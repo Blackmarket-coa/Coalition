@@ -15,3 +15,5 @@ export { default as VerticalVideoFeed } from './components/VerticalVideoFeed';
 export { default as ChatPanel } from './components/ChatPanel';
 
 export { default as ProposalSheet } from './components/ProposalSheet';
+
+export { default as PostTab } from './components/PostTab';
