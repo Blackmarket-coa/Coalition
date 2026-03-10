@@ -56,6 +56,7 @@ const DriverProfileScreen = () => {
         const items = [
             { id: '1', title: 'Account', screen: 'DriverAccount' },
             { id: 'onboarding', title: 'Provider Onboarding', screen: 'ProviderOnboarding' },
+            { id: 'privacy', title: 'Privacy Settings', screen: 'PrivacySettings' },
             {
                 id: '2',
                 title: 'Organization',
