@@ -24,6 +24,14 @@ Coalition is a social-first discovery and activation app for the Blackmarket eco
 ## Table of Contents
 
 - [About](#about)
+- [Current App Surfaces](#current-app-surfaces)
+- [Feature Flags (Rollout Controls)](#feature-flags-rollout-controls)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+    - [Configure Environment](#configure-environment)
+- [Running in Simulator](#running-in-simulator)
+    - [Run the app in iOS Simulator](#run-the-app-in-ios-simulator)
+    - [Run the app in Android Simulator](#run-the-app-in-android-simulator)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -43,6 +51,24 @@ Coalition is a social-first discovery and activation app for the Blackmarket eco
 ## About
 
 Coalition is the social discovery + trust + activation layer for the Blackmarket ecosystem. The app now supports a social-first experience (Home, Feed, Explore, Messages, You) while preserving role-aware Blackstar driver flows behind feature flags and route gates.
+
+### Current App Surfaces
+
+- **Social-first Coalition shell** with onboarding, vertical feed, discovery map, messages, and profile.
+- **Driver-compatible routes** retained for order-management and legacy role workflows.
+- **Action routing layer** for ecosystem actions like marketplace, jobs, aid, governance, and room-based messaging.
+- **Consent-first privacy controls** including approximate/precise/off location modes and privacy settings.
+
+### Feature Flags (Rollout Controls)
+
+These environment flags control staged rollout and rollback behavior:
+
+- `COALITION_NAV_ENABLED` (default `true`): toggles Coalition social shell vs legacy Driver navigator.
+- `COALITION_ONBOARDING_ENABLED` (default `true`): toggles social onboarding flow.
+- `COALITION_FEED_RANKING_ENABLED` (default `true`): toggles ranked feed request model params.
+- `COALITION_ACTION_ROUTER_ENABLED` (default `true`): toggles unified ecosystem action routing (with safe fallbacks).
+
+See `docs/COALITION_SOCIAL_MIGRATION_ROLLOUT.md` for staged rollout and rollback playbook.
 
 ### Current App Surfaces
 
@@ -196,6 +222,7 @@ cd Coalition
 yarn install
 ```
 
+In your `.env` file supply your API secret key, and additionally an ArcGIS API key. Lastly, set your app/bundle identifier and an `APP_NAME` key.
 For iOS, install CocoaPods dependencies:
 
 ```bash
