@@ -305,3 +305,224 @@ Coalition is considered end-to-end aligned when:
 
 ## Immediate Next Step
 Run WS1 prompt first, then WS2, and only then wire ranking/CTA in WS3 so onboarding-derived interests can drive first-session feed relevance.
+
+---
+
+## Execution Readiness Addendum (Human + AI Co-Execution)
+
+Use this addendum as the operational layer for assigning ownership, sequencing dependencies, and tracking delivery across both human and AI contributors.
+
+### 1) Ownership Model (fill before kickoff)
+| Workstream | Product Owner (Human) | Engineering Owner (Human) | AI Executor Scope | QA Owner | Status |
+|---|---|---|---|---|---|
+| WS1 Nav/IA | TBD | TBD | Scaffold navigator + tests + migration flag wiring | TBD | Not started |
+| WS2 Onboarding | TBD | TBD | Generate screens/state model/analytics hooks | TBD | Not started |
+| WS3 Feed + Rooms | TBD | TBD | Integrate feed rail/CTA placements/fallback behavior | TBD | Not started |
+| WS4 Privacy UX | TBD | TBD | Consent copy structure + settings persistence paths | TBD | Not started |
+| WS5 Action Router | TBD | TBD | Typed schema + routing adapters + integration tests | TBD | Not started |
+| WS6 Discovery/Conversion | TBD | TBD | Home/Explore conversion instrumentation | TBD | Not started |
+| WS7 Rollout/QA | TBD | TBD | Smoke tests + flag docs + rollback docs | TBD | Not started |
+
+### 2) Dependency Matrix (must be confirmed in planning)
+| Dependency | Blocking For | Owner | Due | Risk if delayed |
+|---|---|---|---|---|
+| Feature-flag infrastructure baseline | WS1, WS2, WS3, WS5, WS7 | TBD | TBD | Cannot safe-rollout or quickly rollback |
+| Matrix room metadata (`room_id` on feed items) | WS3 | TBD | TBD | Comment panel cannot reliably open room threads |
+| Onboarding API endpoint contract (`/v1/user/onboarding`) | WS2, WS3, WS5 | TBD | TBD | Feed personalization and recommendations blocked |
+| Cross-system identity mapping strategy | WS5, WS6 | TBD | TBD | CTA/action handoff reliability drops |
+| Analytics event ingestion/dashboard schema | WS2, WS6, WS7 | TBD | TBD | No conversion visibility or launch confidence |
+
+### 3) Delivery Cadence & Ceremonies
+- **Daily**: 15-minute execution standup (yesterday/today/blockers by workstream).
+- **Twice weekly**: Human+AI implementation review (prompt quality, diff quality, test quality).
+- **Weekly**: Milestone demo + KPI trend check vs success metrics.
+- **Release gate review**: Required before enabling each major flag cohort.
+
+### 4) Branching + PR Rules (for human and AI contributors)
+- Branch naming: `feat/wsX-short-description`.
+- Max PR size target: <= 600 net lines changed (prefer smaller PRs).
+- Every PR must include:
+  - Workstream ID (WS1..WS7)
+  - Acceptance criteria mapping
+  - Risk/rollback notes
+  - Test evidence (commands + pass/fail)
+- No direct merges to main without at least one human review.
+
+### 5) Definition of Ready (per task)
+A task is ready for implementation only if:
+1. Scope maps to exactly one workstream (or clearly lists cross-workstream dependency).
+2. Acceptance criteria are testable.
+3. Feature flag strategy is defined (name, default value, rollback behavior).
+4. Required API/data contracts are linked.
+5. Telemetry/events to emit are listed.
+
+### 6) Definition of Done (per PR)
+A PR is done only if all are true:
+1. Acceptance criteria met and explicitly checked.
+2. Unit/integration tests added or updated.
+3. Feature flagged where applicable.
+4. Observability added (logs/events/metrics).
+5. Rollback path documented.
+6. Human reviewer validated user-impact and safety.
+
+### 7) Risk Register (initial)
+| Risk | Severity | Likelihood | Mitigation | Owner |
+|---|---|---|---|---|
+| Navigation migration breaks deep links | High | Medium | Preserve route aliases + add deep-link regression tests before rollout | TBD |
+| Feed performance drops with CTA insertion | High | Medium | Perf budget + profiling in WS7 + staged enablement | TBD |
+| Privacy flow confusion reduces onboarding completion | Medium | Medium | A/B copy and monitor onboarding drop-off by step | TBD |
+| Cross-system action routing failures | High | Medium | Adapter contract tests + graceful fallback UX | TBD |
+| Analytics not trustworthy at launch | High | Medium | Event contract tests + dashboard QA before ramp | TBD |
+
+### 8) Rollout Plan (feature-flag cohorts)
+1. **Internal dogfood** (team only)
+2. **1% cohort** (new users)
+3. **5% cohort** (new users)
+4. **25% cohort** (new + returning users)
+5. **100% rollout** after guardrail stability window
+
+For each phase, require:
+- Error rate below agreed threshold
+- No P0/P1 regressions in auth/nav/feed/chat/privacy
+- KPI trend non-negative vs control for retention + conversion
+
+### 9) Go/No-Go Checklist
+- [ ] Critical smoke journeys pass (onboarding -> feed -> room, CTA handoff, location-off fallback)
+- [ ] Rollback flags verified in production-like environment
+- [ ] On-call owner assigned for rollout window
+- [ ] Incident comms channel prepared
+- [ ] Dashboard links verified by product + engineering + QA
+
+### 10) Immediate Operational Next Steps
+1. Fill owners and due dates in sections 1 and 2.
+2. Create milestone epics and task tickets mapped to WS1–WS7.
+3. Implement WS1 and WS2 behind flags in parallel with analytics contract setup.
+4. Hold first release gate review before WS3 rollout.
+5. Start 1% cohort only after WS7 smoke and rollback checks pass.
+
+### 11) Prompt Library (for Human + AI Execution)
+Use these prompts as copy/paste templates during delivery. Replace placeholders in `{braces}`.
+
+#### Prompt A — Workstream kickoff planning
+```text
+You are assisting with implementation planning for Coalition workstream {WS_ID}.
+
+Context:
+- Source doc: docs/COALITION_ALIGNMENT_WORK_ORDER.md
+- Workstream: {WS_ID} - {WORKSTREAM_NAME}
+- Milestone: {MILESTONE}
+- Constraints: feature-flagged rollout, backward compatibility, measurable conversion impact.
+
+Tasks:
+1) Convert this workstream into 5-10 executable tasks with clear sequencing.
+2) For each task, provide: owner type (human/ai/shared), dependencies, acceptance checks, and risks.
+3) Propose branch names and PR slices that keep each PR <= 600 net lines where feasible.
+4) Identify the minimum viable test plan (unit/integration/smoke) before merge.
+5) Output a go/no-go checklist specific to this workstream.
+
+Output format:
+- Task table
+- Dependency list
+- PR slicing plan
+- Test plan
+- Workstream-specific go/no-go checks
+```
+
+#### Prompt B — Implementation PR generator
+```text
+You are implementing {TASK_NAME} in the Coalition repository.
+
+Requirements:
+1) Follow docs/COALITION_ALIGNMENT_WORK_ORDER.md for {WS_ID} acceptance criteria.
+2) Make the change behind feature flag: {FLAG_NAME} (default: {FLAG_DEFAULT}).
+3) Preserve backward compatibility and existing deep links/route names.
+4) Add or update tests for the exact behavior changed.
+5) Include concise code comments only where needed for non-obvious compatibility logic.
+
+Execution rules:
+- Keep diff focused to files relevant to this task.
+- Avoid unrelated refactors.
+- Provide test commands and expected outcomes.
+
+At the end, output:
+- Changed files
+- Acceptance criteria mapping
+- Risks and rollback path
+- Test evidence
+```
+
+#### Prompt C — Reviewer prompt (human or AI)
+```text
+Review this Coalition PR against workstream {WS_ID}.
+
+Review checklist:
+1) Does the PR satisfy mapped acceptance criteria from docs/COALITION_ALIGNMENT_WORK_ORDER.md?
+2) Is the feature flag correctly implemented and safely defaulted?
+3) Are backward compatibility and deep links preserved?
+4) Are tests sufficient and meaningful for regression prevention?
+5) Are observability and analytics events present where required?
+6) Is rollback feasible without redeploy?
+
+Output:
+- Approve / Request changes
+- Blocking issues
+- Non-blocking suggestions
+- Explicit rollback verification notes
+```
+
+#### Prompt D — QA smoke validation
+```text
+Execute QA smoke validation for Coalition release candidate {RC_TAG}.
+
+Required journeys:
+1) new user onboarding -> feed -> room comment
+2) feed CTA -> marketplace/job flow
+3) location off -> explore fallback
+
+For each journey provide:
+- pass/fail
+- exact reproduction steps
+- environment/device/build info
+- screenshots or logs
+- bug severity if failed
+
+Conclude with:
+- go/no-go recommendation
+- top risks before rollout
+```
+
+#### Prompt E — Rollout decision + rollback
+```text
+You are the release decision assistant for Coalition feature flag {FLAG_NAME}.
+
+Inputs:
+- current cohort: {COHORT}
+- error rates: {ERROR_METRICS}
+- retention/conversion trend vs control: {KPI_DELTA}
+- open incidents: {INCIDENTS}
+
+Tasks:
+1) Decide: proceed, hold, or rollback.
+2) Provide rationale tied to defined rollout gates in docs/COALITION_ALIGNMENT_WORK_ORDER.md.
+3) If rollback is recommended, provide immediate operator checklist and communication draft.
+4) If proceeding, define next cohort guardrails and monitoring window.
+
+Output must be concise and operator-ready.
+```
+
+#### Prompt F — Weekly status synthesis
+```text
+Generate weekly Coalition program status for WS1-WS7.
+
+For each workstream include:
+- status (not started/in progress/blocked/done)
+- completed outcomes this week
+- next actions
+- blockers + owner
+- risk changes
+
+Also include:
+- KPI trend summary against 90-day goals
+- rollout stage by feature flag
+- asks needed from leadership this week
+```
