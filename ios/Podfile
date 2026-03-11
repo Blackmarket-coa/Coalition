@@ -33,10 +33,17 @@ if linkage != nil
 end
 
 target 'BlackstarApp' do
-  config = use_native_modules!
+  fallback_config = { :reactNativePath => '../node_modules/react-native' }
+  begin
+    config = use_native_modules!
+  rescue StandardError => e
+    Pod::UI.warn("use_native_modules! failed (#{e.class}: #{e.message}); using fallback reactNativePath")
+    config = nil
+  end
+
   # CI fallback: when native module autolinking config cannot be resolved,
   # keep Pod install working by using the standard React Native path.
-  config ||= { :reactNativePath => '../node_modules/react-native' }
+  config = fallback_config.merge(config || {})
 
   # MapLibre native dependency
   pod 'MapLibre', '~> 6.8'
