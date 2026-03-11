@@ -399,3 +399,130 @@ For each phase, require:
 3. Implement WS1 and WS2 behind flags in parallel with analytics contract setup.
 4. Hold first release gate review before WS3 rollout.
 5. Start 1% cohort only after WS7 smoke and rollback checks pass.
+
+### 11) Prompt Library (for Human + AI Execution)
+Use these prompts as copy/paste templates during delivery. Replace placeholders in `{braces}`.
+
+#### Prompt A — Workstream kickoff planning
+```text
+You are assisting with implementation planning for Coalition workstream {WS_ID}.
+
+Context:
+- Source doc: docs/COALITION_ALIGNMENT_WORK_ORDER.md
+- Workstream: {WS_ID} - {WORKSTREAM_NAME}
+- Milestone: {MILESTONE}
+- Constraints: feature-flagged rollout, backward compatibility, measurable conversion impact.
+
+Tasks:
+1) Convert this workstream into 5-10 executable tasks with clear sequencing.
+2) For each task, provide: owner type (human/ai/shared), dependencies, acceptance checks, and risks.
+3) Propose branch names and PR slices that keep each PR <= 600 net lines where feasible.
+4) Identify the minimum viable test plan (unit/integration/smoke) before merge.
+5) Output a go/no-go checklist specific to this workstream.
+
+Output format:
+- Task table
+- Dependency list
+- PR slicing plan
+- Test plan
+- Workstream-specific go/no-go checks
+```
+
+#### Prompt B — Implementation PR generator
+```text
+You are implementing {TASK_NAME} in the Coalition repository.
+
+Requirements:
+1) Follow docs/COALITION_ALIGNMENT_WORK_ORDER.md for {WS_ID} acceptance criteria.
+2) Make the change behind feature flag: {FLAG_NAME} (default: {FLAG_DEFAULT}).
+3) Preserve backward compatibility and existing deep links/route names.
+4) Add or update tests for the exact behavior changed.
+5) Include concise code comments only where needed for non-obvious compatibility logic.
+
+Execution rules:
+- Keep diff focused to files relevant to this task.
+- Avoid unrelated refactors.
+- Provide test commands and expected outcomes.
+
+At the end, output:
+- Changed files
+- Acceptance criteria mapping
+- Risks and rollback path
+- Test evidence
+```
+
+#### Prompt C — Reviewer prompt (human or AI)
+```text
+Review this Coalition PR against workstream {WS_ID}.
+
+Review checklist:
+1) Does the PR satisfy mapped acceptance criteria from docs/COALITION_ALIGNMENT_WORK_ORDER.md?
+2) Is the feature flag correctly implemented and safely defaulted?
+3) Are backward compatibility and deep links preserved?
+4) Are tests sufficient and meaningful for regression prevention?
+5) Are observability and analytics events present where required?
+6) Is rollback feasible without redeploy?
+
+Output:
+- Approve / Request changes
+- Blocking issues
+- Non-blocking suggestions
+- Explicit rollback verification notes
+```
+
+#### Prompt D — QA smoke validation
+```text
+Execute QA smoke validation for Coalition release candidate {RC_TAG}.
+
+Required journeys:
+1) new user onboarding -> feed -> room comment
+2) feed CTA -> marketplace/job flow
+3) location off -> explore fallback
+
+For each journey provide:
+- pass/fail
+- exact reproduction steps
+- environment/device/build info
+- screenshots or logs
+- bug severity if failed
+
+Conclude with:
+- go/no-go recommendation
+- top risks before rollout
+```
+
+#### Prompt E — Rollout decision + rollback
+```text
+You are the release decision assistant for Coalition feature flag {FLAG_NAME}.
+
+Inputs:
+- current cohort: {COHORT}
+- error rates: {ERROR_METRICS}
+- retention/conversion trend vs control: {KPI_DELTA}
+- open incidents: {INCIDENTS}
+
+Tasks:
+1) Decide: proceed, hold, or rollback.
+2) Provide rationale tied to defined rollout gates in docs/COALITION_ALIGNMENT_WORK_ORDER.md.
+3) If rollback is recommended, provide immediate operator checklist and communication draft.
+4) If proceeding, define next cohort guardrails and monitoring window.
+
+Output must be concise and operator-ready.
+```
+
+#### Prompt F — Weekly status synthesis
+```text
+Generate weekly Coalition program status for WS1-WS7.
+
+For each workstream include:
+- status (not started/in progress/blocked/done)
+- completed outcomes this week
+- next actions
+- blockers + owner
+- risk changes
+
+Also include:
+- KPI trend summary against 90-day goals
+- rollout stage by feature flag
+- asks needed from leadership this week
+```
