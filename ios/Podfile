@@ -34,6 +34,9 @@ end
 
 target 'BlackstarApp' do
   config = use_native_modules!
+  # CI fallback: when native module autolinking config cannot be resolved,
+  # keep Pod install working by using the standard React Native path.
+  config ||= { :reactNativePath => '../node_modules/react-native' }
 
   # MapLibre native dependency
   pod 'MapLibre', '~> 6.8'
