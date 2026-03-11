@@ -16186,12 +16186,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-i18n@npm:^2.0.15":
+"react-native-i18n@npm:2.0.15":
   version: 2.0.15
   resolution: "react-native-i18n@npm:2.0.15"
   dependencies:
     i18n-js: "npm:3.0.11"
   checksum: 10/4a5ad813a7f04daa7a4888847525e5328a769531f38fefaf51d02ea731ea802a001d83552416c72ab0d58c1c50dc1179ae1557e32dc5ee1dec4bf3b5d535388b
+  languageName: node
+  linkType: hard
+
+"react-native-i18n@patch:react-native-i18n@npm%3A2.0.15#./.yarn/patches/react-native-i18n-npm-2.0.15-7f3cf7cee6.patch::locator=blackstar_nav-monorepo%40workspace%3A.":
+  version: 2.0.15
+  resolution: "react-native-i18n@patch:react-native-i18n@npm%3A2.0.15#./.yarn/patches/react-native-i18n-npm-2.0.15-7f3cf7cee6.patch::version=2.0.15&hash=1c65b5&locator=blackstar_nav-monorepo%40workspace%3A."
+  dependencies:
+    i18n-js: "npm:3.0.11"
+  checksum: 10/b8c4e8784b9f9eb0a58829e2201fd1198226a7a6bef60256239d77798281a66fdf7acf88e81c3c3622d12904cc81a20d9ffaee9b98220d9f6a717b555eec2735
   languageName: node
   linkType: hard
 
@@ -16212,12 +16221,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-launch-navigator@npm:^1.0.9":
+"react-native-launch-navigator@npm:1.0.9":
   version: 1.0.9
   resolution: "react-native-launch-navigator@npm:1.0.9"
   peerDependencies:
     react-native: ">=0.60.0"
   checksum: 10/e84507643548bfc4a44f56a4411853582d1c542086532673d447bcd7d1c78023c2fbd61da58f6427658c2522f8d475bde99fa75e8fff20017adbc8c52d4692ae
+  languageName: node
+  linkType: hard
+
+"react-native-launch-navigator@patch:react-native-launch-navigator@npm%3A1.0.9#./.yarn/patches/react-native-launch-navigator-npm-1.0.9-f069a6b5fd.patch::locator=blackstar_nav-monorepo%40workspace%3A.":
+  version: 1.0.9
+  resolution: "react-native-launch-navigator@patch:react-native-launch-navigator@npm%3A1.0.9#./.yarn/patches/react-native-launch-navigator-npm-1.0.9-f069a6b5fd.patch::version=1.0.9&hash=9a0cf3&locator=blackstar_nav-monorepo%40workspace%3A."
+  peerDependencies:
+    react-native: ">=0.60.0"
+  checksum: 10/79be731434acd8db424ae98823f8d348181fcf69e558b06dd1df724bfd8b4018171042b138c513a63e711f19ba5c3945c77a258adbd44ef2c24226e5e950f6ef
   languageName: node
   linkType: hard
 
@@ -16256,13 +16274,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-notifications@npm:^5.1.0":
-  version: 5.2.2
-  resolution: "react-native-notifications@npm:5.2.2"
+"react-native-notifications@npm:5.1.0":
+  version: 5.1.0
+  resolution: "react-native-notifications@npm:5.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/88bf4c47342cf425a8bdad62c62f59eb7dc9cf5fde10e008f61c3e41ac62fc5d0dca12fc5fcb085169a329fd57af28062d685a81344768c38e229d2fca61c60c
+  checksum: 10/6d1403c4ccbad03a70b14039d73b497f9f5ebaaf41e29868bb0e16874de960a7233a6a6942f036099f37786fcc0d93d1353d535c9e9920af874187fbab902988
+  languageName: node
+  linkType: hard
+
+"react-native-notifications@patch:react-native-notifications@npm%3A5.1.0#./.yarn/patches/react-native-notifications-npm-5.1.0-3e3b2ea3f8.patch::locator=blackstar_nav-monorepo%40workspace%3A.":
+  version: 5.1.0
+  resolution: "react-native-notifications@patch:react-native-notifications@npm%3A5.1.0#./.yarn/patches/react-native-notifications-npm-5.1.0-3e3b2ea3f8.patch::version=5.1.0&hash=e60e17&locator=blackstar_nav-monorepo%40workspace%3A."
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/67befd311cb255a7c002986ac44e544d2951f71c600f96b3f01332d7910056714494236a61e8ece66b1b75ed6f5be23f184f6313231f263219002fbf9e45160e
   languageName: node
   linkType: hard
 
