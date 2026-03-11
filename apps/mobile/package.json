@@ -47,7 +47,7 @@
         "@gorhom/portal": "^1.0.14",
         "@invertase/react-native-apple-authentication": "^2.4.0",
         "@maplibre/maplibre-react-native": "^10.1.31",
-        "@matrix-org/matrix-sdk-crypto-wasm": "^13.0.1",
+        "@matrix-org/matrix-sdk-crypto-wasm": "^13.0.0",
         "@react-native-async-storage/async-storage": "^2.0.0",
         "@react-native-camera-roll/camera-roll": "^7.10.0",
         "@react-native-community/blur": "^4.4.1",
