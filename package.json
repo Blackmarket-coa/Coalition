@@ -7,10 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
+    "build": "yarn check:lockfiles && turbo run build",
     "dev": "turbo run dev --parallel",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
+    "lint": "yarn check:lockfiles && turbo run lint",
+    "test": "yarn check:lockfiles && turbo run test",
+    "check:lockfiles": "bash ./scripts/check-no-nested-lockfiles.sh"
   },
   "devDependencies": {
     "turbo": "^2.1.3"
