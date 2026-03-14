@@ -3,6 +3,15 @@ import { config } from '../utils';
 export const SPATIAL_LAYER_KEYS = ['vendors', 'jobs', 'gardens', 'votes', 'aid', 'infra'] as const;
 export type SpatialLayerKey = (typeof SPATIAL_LAYER_KEYS)[number];
 export type SpatialVisibility = 'public' | 'community' | 'private';
+export interface SpatialEncryptedEnvelope {
+    v: 1;
+    alg: string;
+    kid: string;
+    ciphertext: string;
+    nonce: string;
+    tag?: string;
+    scope: 'role' | 'user' | 'cohort';
+}
 
 export interface SpatialFeedItem {
     id: string;
@@ -13,12 +22,53 @@ export interface SpatialFeedItem {
     visibility: SpatialVisibility;
     source?: 'gateway' | 'medusa' | 'blackstar' | 'blackout';
     meta?: Record<string, unknown>;
+    encrypted?: SpatialEncryptedEnvelope;
 }
+
+export type SpatialDecryptResult = { ok: true; plaintext: string } | { ok: false; reason: 'capability_missing' | 'key_missing' | 'decrypt_error' };
+
+export interface SpatialDecryptContext {
+    hasEncryptedFeedCapability: boolean;
+    resolveKey: (keyId: string) => Promise<string | null>;
+    decryptWithKey: (params: { envelope: SpatialEncryptedEnvelope; keyMaterial: string }) => Promise<string>;
+    onTelemetry?: (event: { status: 'success' | 'failure'; reason?: SpatialDecryptResult['reason']; keyId: string }) => void;
+}
+
+export const maybeDecryptSpatialEnvelope = async (envelope: SpatialEncryptedEnvelope | undefined, context: SpatialDecryptContext): Promise<SpatialDecryptResult> => {
+    if (!envelope) {
+        return { ok: false, reason: 'decrypt_error' };
+    }
+
+    if (!context.hasEncryptedFeedCapability) {
+        context.onTelemetry?.({ status: 'failure', reason: 'capability_missing', keyId: envelope.kid });
+        return { ok: false, reason: 'capability_missing' };
+    }
+
+    const keyMaterial = await context.resolveKey(envelope.kid);
+    if (!keyMaterial) {
+        context.onTelemetry?.({ status: 'failure', reason: 'key_missing', keyId: envelope.kid });
+        return { ok: false, reason: 'key_missing' };
+    }
+
+    try {
+        const plaintext = await context.decryptWithKey({ envelope, keyMaterial });
+        context.onTelemetry?.({ status: 'success', keyId: envelope.kid });
+        return { ok: true, plaintext };
+    } catch {
+        context.onTelemetry?.({ status: 'failure', reason: 'decrypt_error', keyId: envelope.kid });
+        return { ok: false, reason: 'decrypt_error' };
+    }
+};
 
 export interface SpatialFeedResponse {
     generatedAt: string;
     bbox?: [number, number, number, number];
     items: SpatialFeedItem[];
+}
+
+export interface UnifiedSpatialFeedRequestOptions {
+    encryptedKeyId?: string;
+    enableEncryptedLayer?: boolean;
 }
 
 const sampleFeed: SpatialFeedItem[] = [
@@ -35,7 +85,12 @@ export const buildUnifiedSpatialFeedPath = (layers: SpatialLayerKey[]): string =
     return `/v1/spatial/feed?layers=${encodeURIComponent(layerQuery)}`;
 };
 
-export const getUnifiedSpatialFeed = async (host: string, apiKey?: string, layers: SpatialLayerKey[] = [...SPATIAL_LAYER_KEYS]): Promise<SpatialFeedResponse> => {
+export const getUnifiedSpatialFeed = async (
+    host: string,
+    apiKey?: string,
+    layers: SpatialLayerKey[] = [...SPATIAL_LAYER_KEYS],
+    options: UnifiedSpatialFeedRequestOptions = {}
+): Promise<SpatialFeedResponse> => {
     if (!host) {
         return { generatedAt: new Date().toISOString(), items: sampleFeed };
     }
@@ -48,6 +103,8 @@ export const getUnifiedSpatialFeed = async (host: string, apiKey?: string, layer
             headers: {
                 Accept: 'application/json',
                 ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+                ...(options.enableEncryptedLayer ? { 'X-Coalition-Capabilities': 'feed:encrypted' } : {}),
+                ...(options.enableEncryptedLayer && options.encryptedKeyId ? { 'X-Coalition-Key-Id': options.encryptedKeyId } : {}),
             },
         });
 
@@ -70,4 +127,6 @@ export const getUnifiedSpatialFeed = async (host: string, apiKey?: string, layer
 export const getGatewayFeedConfig = () => ({
     host: config('BLACKSTAR_GATEWAY_HOST', ''),
     apiKey: config('BLACKSTAR_GATEWAY_KEY', ''),
+    encryptedKeyId: config('COALITION_FEED_ENCRYPTED_KEY_ID', ''),
+    encryptedLayerEnabled: config('COALITION_FEED_ENCRYPTED_LAYER_ENABLED', false),
 });
