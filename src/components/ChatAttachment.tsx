@@ -1,7 +1,2 @@
-import { YStack } from 'tamagui';
-
-const ChatAttachment = ({ record, participant }) => {
-    return <YStack />;
-};
-
-export default ChatAttachment;
+export { default } from '../../packages/ui/src/components/ChatAttachment';
+export * from '../../packages/ui/src/components/ChatAttachment';
