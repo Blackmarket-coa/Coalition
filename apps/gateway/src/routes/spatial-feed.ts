@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import Redis from 'ioredis';
 import { Pool } from 'pg';
-import type { BBox, EntityType, QueryParams, SpatialFeature, SpatialFeatureCollection, SpatialLayer } from '../lib/types';
+import type { BBox, EntityType, QueryParams, SpatialEncryptedEnvelope, SpatialFeature, SpatialFeatureCollection, SpatialLayer } from '../lib/types';
 import { MedusaSpatialService } from '../services/medusa-spatial-service';
 import { SpatialRepository } from '../services/spatial-repository';
 
@@ -51,6 +51,50 @@ const toFeatureCollection = (items: SpatialFeature[]): SpatialFeatureCollection 
     features: items,
 });
 
+const getAuthorizedEncryptedScopes = (raw = ''): Set<string> => {
+    const entries = raw
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+    return new Set(entries);
+};
+
+const canIncludeEncryptedLayer = (params: { authorizationHeader?: string; capabilityHeader?: string; keyIdHeader?: string; layer: SpatialLayer }): boolean => {
+    const encryptionEnabled = process.env.COALITION_FEED_ENCRYPTED_LAYER_ENABLED === 'true';
+    if (!encryptionEnabled) {
+        return false;
+    }
+
+    const hasAuth = typeof params.authorizationHeader === 'string' && params.authorizationHeader.startsWith('Bearer ');
+    const hasCapability = (params.capabilityHeader ?? '').split(',').map((value) => value.trim()).includes('feed:encrypted');
+    const hasKeyId = typeof params.keyIdHeader === 'string' && params.keyIdHeader.trim().length > 0;
+
+    const allowedScopes = getAuthorizedEncryptedScopes(process.env.COALITION_FEED_ENCRYPTED_LAYERS ?? 'jobs,govern,aid');
+    const layerAllowed = allowedScopes.has(params.layer);
+
+    return hasAuth && hasCapability && hasKeyId && layerAllowed;
+};
+
+const createEncryptedEnvelope = (params: { featureId: string; layer: SpatialLayer; keyId: string }): SpatialEncryptedEnvelope => ({
+    v: 1,
+    alg: process.env.COALITION_FEED_ENCRYPTED_ALG ?? 'A256GCM',
+    kid: params.keyId,
+    // Placeholder ciphertext envelope. Real encryption should be delegated to KMS-backed service in WS8.
+    ciphertext: Buffer.from(`v1:${params.layer}:${params.featureId}`).toString('base64url'),
+    nonce: Buffer.from(`${params.featureId}:${Date.now()}`).toString('base64url').slice(0, 24),
+    scope: 'role',
+});
+
+const logEncryptedLayerTelemetry = (params: { totalFeatures: number; encryptedFeatures: number; cacheHit: boolean }) => {
+    console.info('[spatial-feed][encrypted-layer]', {
+        total_features: params.totalFeatures,
+        encrypted_features: params.encryptedFeatures,
+        decryptable_ratio: params.totalFeatures > 0 ? params.encryptedFeatures / params.totalFeatures : 0,
+        cache_hit: params.cacheHit,
+    });
+};
+
 export const createSpatialFeedRouter = () => {
     const router = new Hono();
 
@@ -67,6 +111,10 @@ export const createSpatialFeedRouter = () => {
 
     router.get('/api/v1/spatial/feed', async (c) => {
         try {
+            const authorizationHeader = c.req.header('authorization');
+            const capabilityHeader = c.req.header('x-coalition-capabilities');
+            const keyIdHeader = c.req.header('x-coalition-key-id');
+
             const parsed = querySchema.parse({
                 bbox: c.req.query('bbox'),
                 layers: c.req.query('layers') ?? undefined,
@@ -90,7 +138,15 @@ export const createSpatialFeedRouter = () => {
             }
 
             if (cached) {
-                return c.json(JSON.parse(cached), 200);
+                const cachedPayload = JSON.parse(cached) as SpatialFeatureCollection;
+                logEncryptedLayerTelemetry({
+                    totalFeatures: Array.isArray(cachedPayload?.features) ? cachedPayload.features.length : 0,
+                    encryptedFeatures: Array.isArray(cachedPayload?.features)
+                        ? cachedPayload.features.filter((feature) => Boolean(feature?.properties?.encrypted)).length
+                        : 0,
+                    cacheHit: true,
+                });
+                return c.json(cachedPayload, 200);
             }
 
             const entityTypes = [...new Set(query.layers.flatMap((layer) => layerToEntityTypes[layer]))];
@@ -121,6 +177,19 @@ export const createSpatialFeedRouter = () => {
                         return null;
                     }
 
+                    const encrypted = canIncludeEncryptedLayer({
+                        authorizationHeader,
+                        capabilityHeader,
+                        keyIdHeader,
+                        layer: entity.layer,
+                    })
+                        ? createEncryptedEnvelope({
+                              featureId: entity.id,
+                              layer: entity.layer,
+                              keyId: keyIdHeader!.trim(),
+                          })
+                        : undefined;
+
                     return {
                         type: 'Feature',
                         geometry: {
@@ -139,12 +208,18 @@ export const createSpatialFeedRouter = () => {
                                 tagline: entity.tagline,
                                 rating: entity.rating,
                             },
+                            ...(encrypted ? { encrypted } : {}),
                         },
                     } satisfies SpatialFeature;
                 })
                 .filter((feature): feature is SpatialFeature => feature !== null);
 
             const payload = toFeatureCollection(features);
+            logEncryptedLayerTelemetry({
+                totalFeatures: payload.features.length,
+                encryptedFeatures: payload.features.filter((feature) => Boolean(feature.properties.encrypted)).length,
+                cacheHit: false,
+            });
             try {
                 await redis.setex(cacheKey, 60, JSON.stringify(payload));
             } catch (error) {

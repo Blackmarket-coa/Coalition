@@ -23,6 +23,17 @@ export interface SpatialFeatureProperties {
     status: string;
     icon: string;
     preview: Preview;
+    encrypted?: SpatialEncryptedEnvelope;
+}
+
+export interface SpatialEncryptedEnvelope {
+    v: 1;
+    alg: string;
+    kid: string;
+    ciphertext: string;
+    nonce: string;
+    tag?: string;
+    scope: 'role' | 'user' | 'cohort';
 }
 
 export interface PointGeometry {
