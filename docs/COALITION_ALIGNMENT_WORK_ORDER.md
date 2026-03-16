@@ -312,31 +312,53 @@ Run WS1 prompt first, then WS2, and only then wire ranking/CTA in WS3 so onboard
 
 Use this addendum as the operational layer for assigning ownership, sequencing dependencies, and tracking delivery across both human and AI contributors.
 
-### 1) Ownership Model (fill before kickoff)
-| Workstream | Product Owner (Human) | Engineering Owner (Human) | AI Executor Scope | QA Owner | Status |
-|---|---|---|---|---|---|
-| WS1 Nav/IA | TBD | TBD | Scaffold navigator + tests + migration flag wiring | TBD | Not started |
-| WS2 Onboarding | TBD | TBD | Generate screens/state model/analytics hooks | TBD | Not started |
-| WS3 Feed + Rooms | TBD | TBD | Integrate feed rail/CTA placements/fallback behavior | TBD | Not started |
-| WS4 Privacy UX | TBD | TBD | Consent copy structure + settings persistence paths | TBD | Not started |
-| WS5 Action Router | TBD | TBD | Typed schema + routing adapters + integration tests | TBD | Not started |
-| WS6 Discovery/Conversion | TBD | TBD | Home/Explore conversion instrumentation | TBD | Not started |
-| WS7 Rollout/QA | TBD | TBD | Smoke tests + flag docs + rollback docs | TBD | Not started |
+### 1) Ownership Model (proposed staffing for kickoff)
+| Workstream | Product Owner (Human) | Engineering Owner (Human) | AI Executor Scope | QA Owner | Target Start | Target Complete | Status |
+|---|---|---|---|---|---|---|---|
+| WS1 Nav/IA | Product Lead — Core App | Mobile Platform Lead | Scaffold navigator + tests + migration flag wiring | QA Lead — Mobile Journeys | 2026-03-17 | 2026-03-30 | Planned |
+| WS2 Onboarding | Growth PM | Onboarding Squad Lead | Generate screens/state model/analytics hooks | QA Analyst — Activation | 2026-03-24 | 2026-04-06 | Planned |
+| WS3 Feed + Rooms | Social Experience PM | Feed/Realtime Lead | Integrate feed rail/CTA placements/fallback behavior | QA Lead — Feed/Chat | 2026-04-07 | 2026-04-20 | Planned |
+| WS4 Privacy UX | Trust & Safety PM | Privacy Engineering Lead | Consent copy structure + settings persistence paths | QA Analyst — Privacy | 2026-04-07 | 2026-04-20 | Planned |
+| WS5 Action Router | Ecosystem PM | Integrations Lead | Typed schema + routing adapters + integration tests | QA Lead — Integrations | 2026-04-21 | 2026-05-04 | Planned |
+| WS6 Discovery/Conversion | Marketplace PM | Growth Engineering Lead | Home/Explore conversion instrumentation | QA Analyst — Conversion | 2026-04-21 | 2026-05-04 | Planned |
+| WS7 Rollout/QA | Release PM | Release Engineering Lead | Smoke tests + flag docs + rollback docs | QA Manager | 2026-05-05 | 2026-05-15 | Planned |
 
-### 2) Dependency Matrix (must be confirmed in planning)
+### 2) Dependency Matrix (proposed owners + due dates)
 | Dependency | Blocking For | Owner | Due | Risk if delayed |
 |---|---|---|---|---|
-| Feature-flag infrastructure baseline | WS1, WS2, WS3, WS5, WS7 | TBD | TBD | Cannot safe-rollout or quickly rollback |
-| Matrix room metadata (`room_id` on feed items) | WS3 | TBD | TBD | Comment panel cannot reliably open room threads |
-| Onboarding API endpoint contract (`/v1/user/onboarding`) | WS2, WS3, WS5 | TBD | TBD | Feed personalization and recommendations blocked |
-| Cross-system identity mapping strategy | WS5, WS6 | TBD | TBD | CTA/action handoff reliability drops |
-| Analytics event ingestion/dashboard schema | WS2, WS6, WS7 | TBD | TBD | No conversion visibility or launch confidence |
+| Feature-flag infrastructure baseline | WS1, WS2, WS3, WS5, WS7 | Mobile Platform Lead | 2026-03-23 | Cannot safe-rollout or quickly rollback |
+| Matrix room metadata (`room_id` on feed items) | WS3 | Feed/Realtime Lead | 2026-04-03 | Comment panel cannot reliably open room threads |
+| Onboarding API endpoint contract (`/v1/user/onboarding`) | WS2, WS3, WS5 | Backend API Lead | 2026-03-31 | Feed personalization and recommendations blocked |
+| Cross-system identity mapping strategy | WS5, WS6 | Integrations Lead | 2026-04-10 | CTA/action handoff reliability drops |
+| Analytics event ingestion/dashboard schema | WS2, WS6, WS7 | Data Platform Lead | 2026-03-28 | No conversion visibility or launch confidence |
 
 ### 3) Delivery Cadence & Ceremonies
 - **Daily**: 15-minute execution standup (yesterday/today/blockers by workstream).
 - **Twice weekly**: Human+AI implementation review (prompt quality, diff quality, test quality).
 - **Weekly**: Milestone demo + KPI trend check vs success metrics.
 - **Release gate review**: Required before enabling each major flag cohort.
+
+#### Weekly Execution Dashboard (proposal)
+| Week Of | Primary Focus | Planned Deliverables | Exit Criteria | Accountable Owner |
+|---|---|---|---|---|
+| 2026-03-16 | Program setup + WS1 kickoff | Owners confirmed, dependency tickets filed, WS1 branches created | No unowned dependencies; WS1 implementation in progress | Release PM |
+| 2026-03-23 | WS1 delivery + WS2 kickoff | Nav migration flag, deep-link regression tests, onboarding API contract draft | WS1 PRs in review, WS2 build started | Mobile Platform Lead |
+| 2026-03-30 | WS2 delivery | Onboarding state model/screens/events wired | Onboarding smoke passes behind flag | Onboarding Squad Lead |
+| 2026-04-06 | WS3 + WS4 kickoff | Feed rail integration + privacy consent flow scaffolds | Feed/privacy PR slices merged behind flags | Feed/Realtime Lead |
+| 2026-04-13 | WS3 + WS4 delivery | Room comment path + privacy settings persistence | Feed-to-room and privacy journeys pass smoke | Privacy Engineering Lead |
+| 2026-04-20 | WS5 + WS6 kickoff | Action router schema + discovery instrumentation baseline | Contract tests green for router + events | Integrations Lead |
+| 2026-04-27 | WS5 + WS6 delivery | CTA handoff adapters + conversion dashboards | Conversion signal visible in dashboards | Growth Engineering Lead |
+| 2026-05-04 | WS7 hardening | End-to-end smoke matrix + rollback playbook + alerting | Launch gate checklist all green in staging | QA Manager |
+| 2026-05-11 | Launch readiness | 1% cohort go/no-go decision packet | Exec sign-off + on-call roster published | Release Engineering Lead |
+
+#### Blocker Escalation Matrix
+| Blocker Type | First Responder | Escalation Owner | Escalation SLA | Decision/Resolution Target |
+|---|---|---|---|---|
+| API/schema contract mismatch | Backend API Lead | Engineering Director | 4 business hours | 1 business day |
+| Feature-flag platform instability | Mobile Platform Lead | SRE/Platform Manager | 2 business hours | Same day |
+| Analytics pipeline/data quality failure | Data Platform Lead | Head of Data | 4 business hours | 1 business day |
+| Cross-team dependency miss (date slip) | Release PM | Product Director | 1 business day | Next steering sync |
+| Security/privacy compliance concern | Trust & Safety PM | Security Lead | Immediate | Before next deploy |
 
 ### 4) Branching + PR Rules (for human and AI contributors)
 - Branch naming: `feat/wsX-short-description`.
@@ -368,11 +390,11 @@ A PR is done only if all are true:
 ### 7) Risk Register (initial)
 | Risk | Severity | Likelihood | Mitigation | Owner |
 |---|---|---|---|---|
-| Navigation migration breaks deep links | High | Medium | Preserve route aliases + add deep-link regression tests before rollout | TBD |
-| Feed performance drops with CTA insertion | High | Medium | Perf budget + profiling in WS7 + staged enablement | TBD |
-| Privacy flow confusion reduces onboarding completion | Medium | Medium | A/B copy and monitor onboarding drop-off by step | TBD |
-| Cross-system action routing failures | High | Medium | Adapter contract tests + graceful fallback UX | TBD |
-| Analytics not trustworthy at launch | High | Medium | Event contract tests + dashboard QA before ramp | TBD |
+| Navigation migration breaks deep links | High | Medium | Preserve route aliases + add deep-link regression tests before rollout | Mobile Platform Lead |
+| Feed performance drops with CTA insertion | High | Medium | Perf budget + profiling in WS7 + staged enablement | Feed/Realtime Lead |
+| Privacy flow confusion reduces onboarding completion | Medium | Medium | A/B copy and monitor onboarding drop-off by step | Trust & Safety PM |
+| Cross-system action routing failures | High | Medium | Adapter contract tests + graceful fallback UX | Integrations Lead |
+| Analytics not trustworthy at launch | High | Medium | Event contract tests + dashboard QA before ramp | Data Platform Lead |
 
 ### 8) Rollout Plan (feature-flag cohorts)
 1. **Internal dogfood** (team only)
@@ -394,8 +416,8 @@ For each phase, require:
 - [ ] Dashboard links verified by product + engineering + QA
 
 ### 10) Immediate Operational Next Steps
-1. Fill owners and due dates in sections 1 and 2.
-2. Create milestone epics and task tickets mapped to WS1–WS7.
+1. Confirm named owners in sections 1 and 2 with team leads by 2026-03-17.
+2. Create milestone epics and task tickets mapped to WS1–WS7 using the proposed week-by-week dashboard.
 3. Implement WS1 and WS2 behind flags in parallel with analytics contract setup.
 4. Hold first release gate review before WS3 rollout.
 5. Start 1% cohort only after WS7 smoke and rollback checks pass.
