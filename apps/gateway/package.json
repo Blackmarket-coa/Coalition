@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"@blackstar/gateway: lint not configured yet (temporary exemption)\"",
+    "test": "echo \"@blackstar/gateway: test not configured yet (temporary exemption)\""
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

@@ -11,7 +11,8 @@
     "dev": "turbo run dev --parallel",
     "lint": "yarn check:lockfiles && turbo run lint",
     "test": "yarn check:lockfiles && turbo run test",
-    "check:lockfiles": "bash ./scripts/check-no-nested-lockfiles.sh"
+    "check:lockfiles": "bash ./scripts/check-no-nested-lockfiles.sh",
+    "typecheck": "yarn check:lockfiles && turbo run typecheck"
   },
   "devDependencies": {
     "turbo": "^2.1.3"

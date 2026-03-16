@@ -3,6 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "webpack serve --config ../../webpack.config.js",
-    "build": "webpack --config ../../webpack.config.js"
+    "build": "webpack --config ../../webpack.config.js",
+    "lint": "echo \"@blackstar/web: lint not configured yet (temporary exemption)\"",
+    "test": "echo \"@blackstar/web: test not configured yet (temporary exemption)\"",
+    "typecheck": "echo \"@blackstar/web: typecheck not configured yet (temporary exemption)\""
   }
 }

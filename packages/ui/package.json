@@ -3,5 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "echo \"@blackstar/ui: lint not configured yet (temporary exemption)\"",
+    "test": "echo \"@blackstar/ui: test not configured yet (temporary exemption)\"",
+    "typecheck": "echo \"@blackstar/ui: typecheck not configured yet (temporary exemption)\""
+  }
 }
