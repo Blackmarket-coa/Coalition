@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { later } from '../utils';
 import { useNotification } from '../contexts/NotificationContext';
 import { useChat } from '../contexts/ChatContext';
-import { useOrderManager } from '../contexts/OrderManagerContext';
+import { useOrderManager } from '@blackstar/core';
 import useFleetbase from '../hooks/use-fleetbase';
 
 const getCurrentScreen = (tabNavigation) => {
