@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mapfile -t lockfiles < <(find . -type f \( -name 'yarn.lock' -o -name 'package-lock.json' -o -name 'pnpm-lock.yaml' \) \
-  -not -path './node_modules/*' \
-  -not -path './.yarn/*' | sort)
+mapfile -t lockfiles < <(find . \
+  \( -type d \( -name 'node_modules' -o -name '.yarn' -o -name '.git' \) -prune \) -o \
+  \( -type f \( -name 'yarn.lock' -o -name 'package-lock.json' -o -name 'pnpm-lock.yaml' \) -print \) | sort)
 
 allowed='./yarn.lock'
 invalid=()

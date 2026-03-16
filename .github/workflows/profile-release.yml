@@ -176,6 +176,12 @@ jobs:
               with:
                   node-version: ${{ env.NODE_VERSION }}
 
+            - name: Enforce single lockfile policy
+              run: |
+                  corepack enable
+                  corepack prepare yarn@4.12.0 --activate
+                  yarn check:lockfiles
+
             - name: Enable Corepack and install dependencies
               run: |
                   corepack enable
@@ -309,6 +315,12 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
+
+            - name: Enforce single lockfile policy
+              run: |
+                  corepack enable
+                  corepack prepare yarn@4.12.0 --activate
+                  yarn check:lockfiles
 
             - name: Enable Corepack and install dependencies
               run: |
@@ -569,6 +581,12 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
+
+            - name: Enforce single lockfile policy
+              run: |
+                  corepack enable
+                  corepack prepare yarn@4.12.0 --activate
+                  yarn check:lockfiles
 
             - name: Enable Corepack and install dependencies
               run: |
