@@ -5,8 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "lint": "echo \"@blackstar/core: lint not configured yet (temporary exemption)\"",
-    "test": "echo \"@blackstar/core: test not configured yet (temporary exemption)\"",
-    "typecheck": "echo \"@blackstar/core: typecheck not configured yet (temporary exemption)\""
+    "lint": "eslint src --ext .ts,.tsx --max-warnings=0",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit --pretty false --skipLibCheck --jsx react-jsx --moduleResolution bundler --target ES2022 src/index.ts"
   }
 }

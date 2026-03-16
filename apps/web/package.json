@@ -4,8 +4,8 @@
   "scripts": {
     "dev": "webpack serve --config ../../webpack.config.js",
     "build": "webpack --config ../../webpack.config.js",
-    "lint": "echo \"@blackstar/web: lint not configured yet (temporary exemption)\"",
-    "test": "echo \"@blackstar/web: test not configured yet (temporary exemption)\"",
-    "typecheck": "echo \"@blackstar/web: typecheck not configured yet (temporary exemption)\""
+    "lint": "eslint ../../webpack.config.js --max-warnings=0",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit --pretty false --allowJs --checkJs ../../webpack.config.js"
   }
 }
