@@ -18,7 +18,7 @@ import { showActionSheet } from '../utils';
 import { useAuth } from '@blackstar/core/src/contexts/AuthContext';
 import { useLocation } from '@blackstar/core/src/contexts/LocationContext';
 import { useLanguage } from '@blackstar/core/src/contexts/LanguageContext';
-import { useOrderManager } from '@blackstar/core/src/contexts/OrderManagerContext';
+import { useOrderManager } from '@blackstar/core';
 import { useTempStore } from '@blackstar/core/src/contexts/TempStoreContext';
 import useSocketClusterClient from '../hooks/use-socket-cluster-client';
 import useStorage from '../hooks/use-storage';

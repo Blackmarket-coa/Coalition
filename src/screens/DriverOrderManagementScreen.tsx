@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { endOfYear, format, startOfYear, subDays } from 'date-fns';
 import { formatDuration, formatMeters } from '../utils/format';
-import { useOrderManager } from '../contexts/OrderManagerContext';
+import { useOrderManager } from '@blackstar/core';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import InsetShadow from 'react-native-inset-shadow';

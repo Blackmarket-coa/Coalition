@@ -30,7 +30,7 @@ import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverAccountScreen from '../screens/DriverAccountScreen';
 import ProviderOnboardingScreen from '../screens/ProviderOnboardingScreen';
 import PostTabScreen from '../screens/PostTabScreen';
-import { useOrderManager } from '@blackstar/core/src/contexts/OrderManagerContext';
+import { useOrderManager } from '@blackstar/core';
 import { useChat } from '@blackstar/core/src/contexts/ChatContext';
 import useAppTheme from '../hooks/use-app-theme';
 import DriverLayout from '../layouts/DriverLayout';

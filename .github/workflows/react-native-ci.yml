@@ -67,9 +67,11 @@ jobs:
               id: cache-key
               run: echo "key=${{ runner.os }}-deps-${{ hashFiles('**/yarn.lock', '**/package.json') }}" >> $GITHUB_OUTPUT
 
-            # Optional: Run tests if you have them
-            # - name: Run tests
-            #   run: yarn test
+            - name: Run root lint
+              run: yarn lint
+
+            - name: Run root test
+              run: yarn test
 
     android_build:
         runs-on: ubuntu-latest
