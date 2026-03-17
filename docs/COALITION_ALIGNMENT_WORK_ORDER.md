@@ -408,12 +408,44 @@ For each phase, require:
 - No P0/P1 regressions in auth/nav/feed/chat/privacy
 - KPI trend non-negative vs control for retention + conversion
 
-### 9) Go/No-Go Checklist
-- [ ] Critical smoke journeys pass (onboarding -> feed -> room, CTA handoff, location-off fallback)
-- [ ] Rollback flags verified in production-like environment
-- [ ] On-call owner assigned for rollout window
-- [ ] Incident comms channel prepared
-- [ ] Dashboard links verified by product + engineering + QA
+### 9) Go/No-Go Operational Gates (Executable)
+
+#### Gate-to-check mapping
+| Gate | CI/Runbook Check | Owner | Evidence Required | Blocking Severity |
+|---|---|---|---|---|
+| Critical smoke journeys pass | CI job `release-smoke` executes: (1) onboarding -> feed -> room comment, (2) feed CTA -> marketplace/job, (3) location-off -> explore fallback | QA Manager | Job URL + test report artifact + failed-step logs if any | P0 |
+| Rollback flags verified | Runbook drill `rollback-flags-drill.md` in staging and pre-prod; verify each major flag can disable new flows without redeploy | Release Engineering Lead | Drill checklist with timestamps and before/after screenshots | P0 |
+| On-call owner assigned | Pager rotation + escalation contacts confirmed for rollout window in incident channel topic | Release PM | Screenshot/link to on-call schedule + ack from primary/secondary | P1 |
+| Incident comms channel prepared | Pre-create incident room, template message, stakeholder mention list, and severity matrix | Product Director | Channel link + dry-run message with approval ack | P1 |
+| Dashboard links verified | Product/Eng/QA jointly validate launch dashboard widgets, alert thresholds, and event freshness | Data Platform Lead | Signed checklist with dashboard URLs + timestamped query snapshots | P0 |
+
+#### Threshold table
+| Metric / Guardrail | Threshold (Go) | No-Go Trigger | Measurement Window | Owner |
+|---|---|---|---|---|
+| Crash-free sessions | >= 99.5% | < 99.5% for 30 min | Rolling 30 min | Mobile Platform Lead |
+| API 5xx rate (flagged surfaces) | < 1.0% | >= 1.0% for 15 min | Rolling 15 min | Backend API Lead |
+| P95 feed load time | <= 2.5s | > 2.5s for 3 consecutive checks | 3 check intervals | Feed/Realtime Lead |
+| CTA handoff success rate | >= 97% | < 97% over cohort window | Per cohort stage window | Integrations Lead |
+| Onboarding completion (new users) | >= control - 2% | < control - 2% after 24h | 24h post-cohort start | Growth PM |
+| Analytics event freshness | <= 10 min lag | > 10 min lag for 20 min | Rolling 20 min | Data Platform Lead |
+
+#### Rollback drill steps
+1. **Pre-drill snapshot**: Record current flag values, current cohort size, key guardrail metrics, and incident channel status.
+2. **Trigger rollback**: Disable `new_nav`, `new_onboarding`, `feed_ranking_v2`, and `action_router_v1` flags in staging.
+3. **Verify fallback UX**: Confirm legacy navigation/routes render, onboarding defaults to legacy flow, and CTA falls back to pre-router path.
+4. **Integrity checks**: Re-run smoke journeys and validate no deep-link regressions, no auth/session invalidation, and no data-loss in active flows.
+5. **Observability checks**: Ensure rollback event emitted, dashboards update within freshness threshold, and alert noise remains below incident threshold.
+6. **Time-to-recover SLO**: Complete rollback and verification in <= 15 minutes.
+7. **Signoff + record**: Attach runbook evidence (logs/screenshots/flag timeline) and collect approvals from Release Eng + QA + Product.
+
+#### Rollout signoff template
+| Cohort | Entry Criteria | Mandatory Checks | Exit Criteria | Signoff Roles | Decision |
+|---|---|---|---|---|---|
+| Internal dogfood | All P0 gates green in staging | Smoke suite, rollback drill, dashboard verification | 24h stable metrics and no P0/P1 incidents | Release Eng + QA Manager + Product Lead | Go / No-Go |
+| 1% cohort (new users) | Internal dogfood signed off | Guardrail thresholds + incident channel live + on-call active | 24h no threshold breach; no unresolved P1 | Release PM + Data Lead + Eng Lead | Go / Hold / Rollback |
+| 5% cohort (new users) | 1% cohort stable | Repeat full gate pack + KPI delta review | 48h stable; onboarding and CTA metrics non-negative | Product Director + Eng Director + QA Manager | Go / Hold / Rollback |
+| 25% cohort (new + returning) | 5% cohort stable | Full smoke + perf checks + support ticket review | 72h stable; support volume within baseline +10% | Release Council (Product/Eng/QA/Data) | Go / Hold / Rollback |
+| 100% rollout | 25% cohort stable + exec readiness review | Final go/no-go meeting with all evidence artifacts | 7-day monitoring plan active + rollback owner on-call | Exec Sponsor + Release Council | Go / No-Go |
 
 ### 10) Immediate Operational Next Steps
 1. Confirm named owners in sections 1 and 2 with team leads by 2026-03-17.
