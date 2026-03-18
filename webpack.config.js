@@ -2,7 +2,7 @@ const webpack = require('webpack');
 const path = require('path');
 
 module.exports = {
-    entry: './index.web.tsx',
+    entry: path.resolve(__dirname, 'index.web.tsx'),
     resolve: {
         extensions: ['.web.js', '.js', '.jsx', '.tsx', '.ts', '.mjs'],
         alias: {
@@ -21,7 +21,11 @@ module.exports = {
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env', '@babel/preset-react'],
+                        presets: [
+                            '@babel/preset-env',
+                            '@babel/preset-react',
+                            '@babel/preset-typescript',
+                        ],
                         plugins: [],
                     },
                 },

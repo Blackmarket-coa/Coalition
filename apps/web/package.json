@@ -1,6 +1,12 @@
 {
   "name": "@blackstar/web",
   "private": true,
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.26.0",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.0",
+    "webpack-dev-server": "^5.2.0"
+  },
   "scripts": {
     "dev": "webpack serve --config ../../webpack.config.js",
     "build": "webpack --config ../../webpack.config.js",
