@@ -7,6 +7,10 @@ module.exports = {
     resolve: {
         mainFields: ['browser', 'module', 'main'],
         extensions: ['.web.tsx', '.web.ts', '.web.js', '.js', '.jsx', '.tsx', '.ts', '.mjs'],
+    entry: path.resolve(__dirname, 'apps/web/index.web.tsx'),
+    resolve: {
+        mainFields: ['react-native', 'browser', 'module', 'main'],
+        extensions: ['.web.js', '.js', '.jsx', '.tsx', '.ts', '.mjs'],
         alias: {
             'react-native$': 'react-native-web',
             '@gorhom/bottom-sheet': path.resolve(__dirname, 'apps/web/shims/bottom-sheet.tsx'),
@@ -44,7 +48,13 @@ module.exports = {
         rules: [
             {
                 test: /\.(js|ts|tsx)$/,
-                exclude: /node_modules/,
+                exclude: (modulePath) => {
+                    if (!/node_modules/.test(modulePath)) {
+                        return false;
+                    }
+
+                    return !/(react-native-video|react-native-svg|react-native-super-grid|@gorhom\/portal|@bam\.tech\/react-native-image-resizer)/.test(modulePath);
+                },
                 use: {
                     loader: 'babel-loader',
                     options: {
