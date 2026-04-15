@@ -86,7 +86,7 @@ const LocationPermissionScreen: React.FC = () => {
 
     return (
         <YStack flex={1} bg='$background' pt={insets.top} pb={insets.bottom} alignItems='center' justifyContent='center' padding='$5'>
-            <Image source={require('../../assets/images/isometric-geolocation-1.png')} width={300} height={220} resizeMode='contain' />
+            <Image source={require('../../apps/mobile/assets/images/isometric-geolocation-1.png')} width={300} height={220} resizeMode='contain' />
 
             <Text fontSize='$8' fontWeight='700' textAlign='center'>
                 Location Consent Contract

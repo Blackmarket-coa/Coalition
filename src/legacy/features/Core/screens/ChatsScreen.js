@@ -70,7 +70,7 @@ const ChatsScreen = () => {
         >
             <View style={tailwind('flex flex-row')}>
                 <FastImage
-                    source={item.participants.avatar_url ? { uri: item.participants.avatar_url } : require('../../../../assets/icon.png')}
+                    source={item.participants.avatar_url ? { uri: item.participants.avatar_url } : require('../../../../apps/mobile/assets/icon.png')}
                     style={tailwind('w-10 h-10 rounded-full')}
                 />
                 <View style={tailwind('flex ml-2')}>
