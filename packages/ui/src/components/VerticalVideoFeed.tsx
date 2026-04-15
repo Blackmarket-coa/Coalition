@@ -22,6 +22,8 @@ type VerticalVideoFeedProps = {
     onShare?: (item: FeedItem) => void;
     onTakeAction?: (item: FeedItem) => void;
     onReport?: (item: FeedItem) => void;
+    onRateImportance?: (item: FeedItem, rating: number) => void;
+    onRateImpact?: (item: FeedItem, rating: number) => void;
     onErrorCategory?: (message: string, context?: Record<string, any>) => void;
     onPerformanceSample?: (sample: { mediaStartLatencyMs: number; scrollFrameDrops: number }) => void;
 };
@@ -37,8 +39,51 @@ const solarpunk = {
 
 const HEART_ANIMATION_MS = 260;
 const DOUBLE_TAP_WINDOW_MS = 240;
+const MIN_RATING = 1;
+const MAX_RATING = 5;
 
-const RightSidebar = ({ item, onOpenProfile, onLike, onOpenComments, onShare, onNavigateToMap }: { item: FeedItem; onOpenProfile: () => void; onLike: () => void; onOpenComments: () => void; onShare: () => void; onNavigateToMap: () => void }) => {
+const clampRating = (value: number) => Math.max(MIN_RATING, Math.min(MAX_RATING, Math.round(value)));
+
+const RatingRail = ({ label, aggregate, count, selected, onRate }: { label: string; aggregate: number; count: number; selected?: number; onRate: (rating: number) => void }) => (
+    <YStack alignItems='center' gap='$1'>
+        <Text color={solarpunk.dim} fontSize={10}>{label}</Text>
+        <XStack gap='$1'>
+            {[1, 2, 3, 4, 5].map((value) => {
+                const isSelected = value <= (selected ?? 0);
+                return (
+                    <Pressable key={`${label}-${value}`} onPress={() => onRate(value)} hitSlop={4}>
+                        <Circle size={12} bg={isSelected ? solarpunk.accentGreen : 'rgba(255,255,255,0.26)'} />
+                    </Pressable>
+                );
+            })}
+        </XStack>
+        <Text color={solarpunk.white} fontSize={10}>{aggregate.toFixed(1)} · {count}</Text>
+    </YStack>
+);
+
+const RightSidebar = ({
+    item,
+    onOpenProfile,
+    onLike,
+    onOpenComments,
+    onShare,
+    onNavigateToMap,
+    onRateImportance,
+    onRateImpact,
+    userImportanceRating,
+    userImpactRating,
+}: {
+    item: FeedItem;
+    onOpenProfile: () => void;
+    onLike: () => void;
+    onOpenComments: () => void;
+    onShare: () => void;
+    onNavigateToMap: () => void;
+    onRateImportance: (rating: number) => void;
+    onRateImpact: (rating: number) => void;
+    userImportanceRating?: number;
+    userImpactRating?: number;
+}) => {
     const heartScale = useSharedValue(1);
     const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 
@@ -56,6 +101,8 @@ const RightSidebar = ({ item, onOpenProfile, onLike, onOpenComments, onShare, on
             </Pressable>
 
             <Pressable onPress={handleLike}><YStack alignItems='center' gap='$1'><Animated.View style={heartStyle}><Circle size={42} bg='rgba(0,0,0,0.45)'><Text color={solarpunk.accentGold} fontSize={18}>♥</Text></Circle></Animated.View><Text color={solarpunk.white} fontSize={12}>{item.likeCount}</Text></YStack></Pressable>
+            <RatingRail label='Importance' aggregate={item.importanceAvg} count={item.ratingsCount} selected={userImportanceRating} onRate={onRateImportance} />
+            <RatingRail label='Impact' aggregate={item.impactAvg} count={item.ratingsCount} selected={userImpactRating} onRate={onRateImpact} />
             <Pressable onPress={onOpenComments}><YStack alignItems='center' gap='$1'><Circle size={42} bg='rgba(0,0,0,0.45)'><Text color={solarpunk.white} fontSize={18}>💬</Text></Circle><Text color={solarpunk.white} fontSize={12}>{item.commentCount}</Text></YStack></Pressable>
             <Pressable onPress={onShare} onLongPress={onShare} delayLongPress={350}><Circle size={42} bg='rgba(0,0,0,0.45)'><Text color={solarpunk.white} fontSize={18}>↗</Text></Circle></Pressable>
             <Pressable onPress={onNavigateToMap}><Circle size={42} bg='rgba(0,0,0,0.45)'><Text color={solarpunk.accentGreen} fontSize={18}>📍</Text></Circle></Pressable>
@@ -76,11 +123,12 @@ const CtaCard = ({ item, height, onOpenCta }: { item: RenderFeedItem; height: nu
     );
 };
 
-export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport, onErrorCategory, onPerformanceSample }: VerticalVideoFeedProps) => {
+export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport, onRateImportance, onRateImpact, onErrorCategory, onPerformanceSample }: VerticalVideoFeedProps) => {
     const [items, setItems] = useState<FeedItem[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const [expandedCaptionId, setExpandedCaptionId] = useState<string | null>(null);
     const [chatItem, setChatItem] = useState<FeedItem | null>(null);
+    const [userRatings, setUserRatings] = useState<Record<string, { importance?: number; impact?: number }>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const lastTap = useRef<{ id: string; at: number } | null>(null);
@@ -151,6 +199,7 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
         const feedItem = item.item;
         const isActive = index === activeIndex;
         const isExpanded = expandedCaptionId === feedItem.id;
+        const myRatings = userRatings[feedItem.id];
 
         return (
             <Pressable onPress={handleDoubleTapLike(feedItem)} onLongPress={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl }))} style={{ width: SCREEN_WIDTH, height }}>
@@ -165,6 +214,18 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
                         onOpenComments={() => handleCommentAction(feedItem, { onOpenChatPanel, setChatItem, onMissingRoom })}
                         onShare={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl }))}
                         onNavigateToMap={() => onNavigateToMap?.(feedItem)}
+                        onRateImportance={(rating) => {
+                            const bounded = clampRating(rating);
+                            setUserRatings((prev) => ({ ...prev, [feedItem.id]: { ...prev[feedItem.id], importance: bounded } }));
+                            onRateImportance?.(feedItem, bounded);
+                        }}
+                        onRateImpact={(rating) => {
+                            const bounded = clampRating(rating);
+                            setUserRatings((prev) => ({ ...prev, [feedItem.id]: { ...prev[feedItem.id], impact: bounded } }));
+                            onRateImpact?.(feedItem, bounded);
+                        }}
+                        userImportanceRating={myRatings?.importance}
+                        userImpactRating={myRatings?.impact}
                     />
 
                     <YStack position='absolute' left={12} right={76} bottom={24} bg={solarpunk.panel} borderRadius={22} p='$3' gap='$2'>
