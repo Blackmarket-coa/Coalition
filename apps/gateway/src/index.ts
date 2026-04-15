@@ -4,6 +4,7 @@ import { createSpatialFeedRouter } from './routes/spatial-feed';
 import { createFreeBlackMarketWebhookRouter } from './routes/free-black-market-webhook';
 import { createProviderProfileRouter } from './routes/provider-profile';
 import { createSpatialGovernanceRouter } from './routes/spatial-governance';
+import { createFeedRouter } from './routes/feed';
 
 const app = new Hono();
 
@@ -12,6 +13,7 @@ app.route('/', createSpatialFeedRouter());
 app.route('/', createFreeBlackMarketWebhookRouter());
 app.route('/', createProviderProfileRouter());
 app.route('/', createSpatialGovernanceRouter());
+app.route('/', createFeedRouter());
 
 serve({
     fetch: app.fetch,
