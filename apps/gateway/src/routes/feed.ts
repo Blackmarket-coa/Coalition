@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import type { FeedEscalationStage, FeedGeoScope, GatewayFeedEvent, GatewayFeedResponse } from '../lib/types';
 
 const precisionValues = ['off', 'none', 'approximate', 'precise'] as const;
 
@@ -28,6 +29,10 @@ const querySchema = z.object({
     ranking_confidence: z.coerce.number().min(0).max(1).optional(),
     ratings_count: z.coerce.number().int().min(0).optional(),
     community_ratings_count: z.coerce.number().int().min(0).optional(),
+    location_context: z.enum(['consented', 'non_location_fallback']).optional(),
+    location_latitude: z.coerce.number().min(-90).max(90).optional(),
+    location_longitude: z.coerce.number().min(-180).max(180).optional(),
+    location_region_code: z.string().min(2).max(32).optional(),
     limit: z.coerce.number().int().min(1).max(100).optional().default(12),
 });
 
@@ -59,6 +64,18 @@ interface FeedEntry {
         engagement: number;
         published_at: string;
     };
+    rating_stats: {
+        unique_raters: number;
+        rating_velocity_6h: number;
+        rating_velocity_24h: number;
+    };
+    community: {
+        engaged_rooms_24h: number;
+        cross_community_diversity: number;
+    };
+    moderation: {
+        anomaly_score: number;
+    };
 }
 
 const baseFeed: FeedEntry[] = [
@@ -76,6 +93,9 @@ const baseFeed: FeedEntry[] = [
         counts: { likes: 291, comments: 57, shares: 41, views: 8_920 },
         trust: { trust_score: 0.92, report_count: 2, report_rate: 0.0002 },
         ranking: { importance: 4.9, social_impact: 4.8, engagement: 0.74, published_at: '2026-04-13T18:10:00.000Z' },
+        rating_stats: { unique_raters: 46, rating_velocity_6h: 1.9, rating_velocity_24h: 1.4 },
+        community: { engaged_rooms_24h: 4, cross_community_diversity: 0.74 },
+        moderation: { anomaly_score: 0.06 },
     },
     {
         id: 'vid_jobs_002',
@@ -91,6 +111,9 @@ const baseFeed: FeedEntry[] = [
         counts: { likes: 410, comments: 94, shares: 66, views: 12_040 },
         trust: { trust_score: 0.89, report_count: 8, report_rate: 0.0007 },
         ranking: { importance: 4.3, social_impact: 4.1, engagement: 0.88, published_at: '2026-04-12T12:00:00.000Z' },
+        rating_stats: { unique_raters: 39, rating_velocity_6h: 1.1, rating_velocity_24h: 1.3 },
+        community: { engaged_rooms_24h: 3, cross_community_diversity: 0.63 },
+        moderation: { anomaly_score: 0.14 },
     },
     {
         id: 'evt_garden_003',
@@ -106,6 +129,9 @@ const baseFeed: FeedEntry[] = [
         counts: { likes: 135, comments: 28, shares: 21, views: 2_440 },
         trust: { trust_score: 0.97, report_count: 0, report_rate: 0 },
         ranking: { importance: 4.7, social_impact: 4.6, engagement: 0.55, published_at: '2026-04-14T07:30:00.000Z' },
+        rating_stats: { unique_raters: 26, rating_velocity_6h: 2.4, rating_velocity_24h: 1.9 },
+        community: { engaged_rooms_24h: 5, cross_community_diversity: 0.81 },
+        moderation: { anomaly_score: 0.03 },
     },
     {
         id: 'vid_market_004',
@@ -121,6 +147,9 @@ const baseFeed: FeedEntry[] = [
         counts: { likes: 352, comments: 81, shares: 25, views: 7_100 },
         trust: { trust_score: 0.94, report_count: 1, report_rate: 0.0001 },
         ranking: { importance: 4.2, social_impact: 4.4, engagement: 0.81, published_at: '2026-04-10T15:00:00.000Z' },
+        rating_stats: { unique_raters: 17, rating_velocity_6h: 0.7, rating_velocity_24h: 0.8 },
+        community: { engaged_rooms_24h: 2, cross_community_diversity: 0.46 },
+        moderation: { anomaly_score: 0.11 },
     },
 ];
 
@@ -139,34 +168,104 @@ const computeRankingScore = (item: FeedEntry, request: { importanceSignal: numbe
     return primary + signalBoost + trustAdjustment * 0.2 + engagementTieBreaker;
 };
 
-const mapEntry = (item: FeedEntry) => ({
-    id: item.id,
-    room_id: item.room_id,
-    content: {
-        url: item.content.url,
-        thumbnail_url: item.content.thumbnail_url,
-        caption: item.content.caption,
-    },
-    counts: {
-        likes: item.counts.likes,
-        comments: item.counts.comments,
-        shares: item.counts.shares,
-        views: item.counts.views,
-    },
-    trust: {
-        score: item.trust.trust_score,
-        report_count: item.trust.report_count,
-        report_rate: item.trust.report_rate,
-    },
-    ranking: {
-        importance: item.ranking.importance,
-        social_impact: item.ranking.social_impact,
-        engagement: item.ranking.engagement,
-        published_at: item.ranking.published_at,
-    },
-    tags: item.tags,
-    language: item.language,
-});
+const RANKING_STAGES: { stage: FeedEscalationStage; geoScope: FeedGeoScope; minScore: number; minTrustScore: number; maxReportRate: number; maxReportCount: number; minUniqueRaters: number }[] = [
+    { stage: 'national', geoScope: 'national', minScore: 0.82, minTrustScore: 0.9, maxReportRate: 0.003, maxReportCount: 4, minUniqueRaters: 36 },
+    { stage: 'regional', geoScope: 'regional', minScore: 0.66, minTrustScore: 0.82, maxReportRate: 0.006, maxReportCount: 8, minUniqueRaters: 20 },
+    { stage: 'local', geoScope: 'local', minScore: 0.48, minTrustScore: 0.72, maxReportRate: 0.01, maxReportCount: 12, minUniqueRaters: 8 },
+];
+
+const clamp = (value: number, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+
+const hoursSincePublished = (publishedAt: string, nowMs: number) => {
+    const deltaMs = nowMs - new Date(publishedAt).getTime();
+    return Math.max(deltaMs / (1000 * 60 * 60), 0);
+};
+
+const windowRecencySignal = (ageHours: number, windowHours: number) => clamp(1 - ageHours / windowHours);
+
+const computeEscalationScore = (item: FeedEntry, nowMs: number): number => {
+    const ageHours = hoursSincePublished(item.ranking.published_at, nowMs);
+    const importanceImpact = clamp((item.ranking.importance * 0.55 + item.ranking.social_impact * 0.45) / 5);
+    const velocity = clamp(item.rating_stats.rating_velocity_24h / 2.5);
+    const crossCommunityDiversity = clamp(item.community.cross_community_diversity);
+    const recency = windowRecencySignal(ageHours, 72);
+    return clamp(importanceImpact * 0.47 + recency * 0.24 + velocity * 0.17 + crossCommunityDiversity * 0.12);
+};
+
+const evaluatePromotionSafety = (item: FeedEntry) => {
+    const diversityGate = item.rating_stats.unique_raters >= 8;
+    const anomalyGate = item.moderation.anomaly_score <= 0.65;
+    const reportGate = item.trust.report_count < 12 && item.trust.report_rate <= 0.01;
+    return {
+        diversityGate,
+        anomalyGate,
+        reportGate,
+        allPassed: diversityGate && anomalyGate && reportGate,
+    };
+};
+
+const computeStageTransition = (item: FeedEntry, nowMs: number) => {
+    const ageHours = hoursSincePublished(item.ranking.published_at, nowMs);
+    const score = computeEscalationScore(item, nowMs);
+    const safety = evaluatePromotionSafety(item);
+    const timelineSignals = {
+        h6: clamp(windowRecencySignal(ageHours, 6) * 0.5 + clamp(item.rating_stats.rating_velocity_6h / 3) * 0.3 + item.community.cross_community_diversity * 0.2),
+        h24: clamp(windowRecencySignal(ageHours, 24) * 0.45 + clamp(item.rating_stats.rating_velocity_24h / 2.5) * 0.35 + item.community.cross_community_diversity * 0.2),
+        h72: clamp(windowRecencySignal(ageHours, 72) * 0.4 + clamp(item.rating_stats.rating_velocity_24h / 2.5) * 0.3 + item.community.cross_community_diversity * 0.3),
+    };
+
+    const fallbackStage = RANKING_STAGES[RANKING_STAGES.length - 1];
+    if (!safety.allPassed) {
+        return { geoScope: fallbackStage.geoScope, stage: fallbackStage.stage, score, timelineSignals };
+    }
+
+    const selected = RANKING_STAGES.find((rule) => {
+        if (score < rule.minScore) return false;
+        if (item.trust.trust_score < rule.minTrustScore) return false;
+        if (item.trust.report_rate > rule.maxReportRate || item.trust.report_count > rule.maxReportCount) return false;
+        if (item.rating_stats.unique_raters < rule.minUniqueRaters) return false;
+        if (rule.stage === 'regional' && timelineSignals.h24 < 0.55) return false;
+        if (rule.stage === 'national' && (timelineSignals.h24 < 0.7 || timelineSignals.h72 < 0.66)) return false;
+        return true;
+    }) ?? fallbackStage;
+
+    return { geoScope: selected.geoScope, stage: selected.stage, score, timelineSignals };
+};
+
+const mapEntry = (item: FeedEntry, nowMs: number): GatewayFeedEvent => {
+    const escalation = computeStageTransition(item, nowMs);
+    return {
+        id: item.id,
+        room_id: item.room_id,
+        content: {
+            url: item.content.url,
+            thumbnail_url: item.content.thumbnail_url,
+            caption: item.content.caption,
+        },
+        counts: {
+            likes: item.counts.likes,
+            comments: item.counts.comments,
+            shares: item.counts.shares,
+            views: item.counts.views,
+        },
+        trust: {
+            score: item.trust.trust_score,
+            report_count: item.trust.report_count,
+            report_rate: item.trust.report_rate,
+        },
+        ranking: {
+            importance: item.ranking.importance,
+            social_impact: item.ranking.social_impact,
+            engagement: item.ranking.engagement,
+            published_at: item.ranking.published_at,
+        },
+        tags: item.tags,
+        language: item.language,
+        geo_scope: escalation.geoScope,
+        escalation_stage: escalation.stage,
+        escalation_score: Number(escalation.score.toFixed(4)),
+    };
+};
 
 export const createFeedRouter = () => {
     const router = new Hono();
@@ -187,6 +286,10 @@ export const createFeedRouter = () => {
                 ranking_confidence: c.req.query('ranking_confidence') ?? undefined,
                 ratings_count: c.req.query('ratings_count') ?? undefined,
                 community_ratings_count: c.req.query('community_ratings_count') ?? undefined,
+                location_context: c.req.query('location_context') ?? undefined,
+                location_latitude: c.req.query('location_latitude') ?? undefined,
+                location_longitude: c.req.query('location_longitude') ?? undefined,
+                location_region_code: c.req.query('location_region_code') ?? undefined,
                 limit: c.req.query('limit') ?? undefined,
             });
 
@@ -194,6 +297,7 @@ export const createFeedRouter = () => {
             const joinedRooms = new Set(toStringArray(parsed.joined_rooms));
             const language = parsed.language.toLowerCase();
             const precision = parsed.consented_location_precision;
+            const locationContext = parsed.location_context ?? ((precision === 'precise' || precision === 'approximate') ? 'consented' : 'non_location_fallback');
 
             const requestSignals = {
                 importanceSignal: normalizeImportanceSignal(parsed),
@@ -214,9 +318,10 @@ export const createFeedRouter = () => {
             const roomBoosted = languageFiltered.map((item) => {
                 const joinedRoomBoost = joinedRooms.has(item.room_id) ? 0.25 : 0;
                 const precisionBoost = precision === 'precise' ? 0.2 : precision === 'approximate' ? 0.1 : 0;
+                const locationSignalBoost = locationContext === 'consented' && typeof parsed.location_latitude === 'number' && typeof parsed.location_longitude === 'number' ? 0.08 : 0;
                 return {
                     item,
-                    score: computeRankingScore(item, requestSignals) + joinedRoomBoost + precisionBoost,
+                    score: computeRankingScore(item, requestSignals) + joinedRoomBoost + precisionBoost + locationSignalBoost,
                 };
             });
 
@@ -237,7 +342,8 @@ export const createFeedRouter = () => {
 
             const selected = roomBoosted.slice(0, parsed.limit).map((entry) => entry.item);
 
-            return c.json({
+            const nowMs = Date.now();
+            const response: GatewayFeedResponse = {
                 ranking_model: parsed.ranking_model,
                 signals_applied: {
                     importance: requestSignals.importanceSignal,
@@ -246,10 +352,13 @@ export const createFeedRouter = () => {
                     ratings_count: parsed.ratings_count ?? 0,
                     community_ratings_count: parsed.community_ratings_count ?? 0,
                     consented_location_precision: precision,
+                    location_context: locationContext,
                 },
-                videos: selected.filter((item) => item.kind === 'video').map(mapEntry),
-                events: selected.filter((item) => item.kind === 'event').map(mapEntry),
-            });
+                videos: selected.filter((item) => item.kind === 'video').map((item) => mapEntry(item, nowMs)),
+                events: selected.filter((item) => item.kind === 'event').map((item) => mapEntry(item, nowMs)),
+            };
+
+            return c.json(response);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Invalid feed query';
             return c.json({ error: message }, 400);
