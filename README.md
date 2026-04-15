@@ -177,9 +177,16 @@ Coalition/
 ├── infra/
 │   └── martin/           # MapLibre tile server (Docker, Railway deployment)
 ├── src/                  # Main app source (screens, contexts, components, hooks, services)
-├── legacy/               # Legacy pre-monorepo app
+├── legacy/               # Legacy pre-monorepo app + consolidated runtime modules (`legacy/runtime`)
 └── translations/         # i18n language files
 ```
+
+
+### Legacy runtime boundary
+
+- Legacy runtime modules are consolidated under `legacy/runtime/` (previously split across `src/legacy` and `legacy/`).
+- Active app code must go through `src/adapters/legacy-runtime` when legacy interop is required.
+- Direct imports from `legacy/runtime/**` are blocked by lint rules outside the adapter layer.
 
 ## Tech Stack
 
