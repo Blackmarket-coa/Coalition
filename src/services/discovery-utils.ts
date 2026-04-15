@@ -11,7 +11,9 @@ export function shouldShowExploreFallback(locationConsent) {
 
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
 
-export function buildFeedRankingParams(baseParams = {}, rankingSignals = {}) {
+type FeedRankingParamsRecord = Record<string, any>;
+
+export function buildFeedRankingParams(baseParams: FeedRankingParamsRecord = {}, rankingSignals: FeedRankingParamsRecord = {}, locationContext: FeedRankingParamsRecord = {}) {
     if (!isCoalitionFeedRankingEnabled()) {
         return baseParams;
     }
@@ -22,6 +24,19 @@ export function buildFeedRankingParams(baseParams = {}, rankingSignals = {}) {
     if (isFiniteNumber(rankingSignals?.ranking_confidence)) rankingParams.ranking_confidence = rankingSignals.ranking_confidence;
     if (isFiniteNumber(rankingSignals?.ratings_count)) rankingParams.ratings_count = rankingSignals.ratings_count;
     if (isFiniteNumber(rankingSignals?.community_ratings_count)) rankingParams.community_ratings_count = rankingSignals.community_ratings_count;
+    const consentedPrecision = locationContext?.precision ?? baseParams?.consented_location_precision;
+    const consented = Boolean(locationContext?.consented) && consentedPrecision && consentedPrecision !== 'off' && consentedPrecision !== 'none';
+
+    if (consented) {
+        rankingParams.location_context = 'consented';
+        rankingParams.consented_location_precision = consentedPrecision;
+        if (isFiniteNumber(locationContext?.latitude)) rankingParams.location_latitude = locationContext.latitude;
+        if (isFiniteNumber(locationContext?.longitude)) rankingParams.location_longitude = locationContext.longitude;
+        if (typeof locationContext?.region_code === 'string' && locationContext.region_code.trim()) rankingParams.location_region_code = locationContext.region_code.trim();
+    } else {
+        rankingParams.location_context = 'non_location_fallback';
+        rankingParams.consented_location_precision = 'none';
+    }
 
     return {
         ...baseParams,

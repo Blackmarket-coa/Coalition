@@ -169,3 +169,53 @@ export interface MedusaKitchenListResponse extends MedusaListResponse<MedusaKitc
 export interface MedusaProducerListResponse extends MedusaListResponse<MedusaProducer> {
     producers?: MedusaProducer[];
 }
+
+export type FeedGeoScope = 'local' | 'regional' | 'national';
+export type FeedEscalationStage = FeedGeoScope;
+
+export interface GatewayFeedEvent {
+    id: string;
+    room_id: string;
+    content: {
+        url: string;
+        thumbnail_url: string;
+        caption: string;
+    };
+    counts: {
+        likes: number;
+        comments: number;
+        shares: number;
+        views: number;
+    };
+    trust: {
+        score: number;
+        report_count: number;
+        report_rate: number;
+    };
+    ranking: {
+        importance: number;
+        social_impact: number;
+        engagement: number;
+        published_at: string;
+    };
+    tags: string[];
+    language: string;
+    geo_scope: FeedGeoScope;
+    escalation_stage: FeedEscalationStage;
+    escalation_score: number;
+}
+
+export interface GatewayFeedResponse {
+    ranking_model: string;
+    signals_applied: {
+        importance: number;
+        social_impact: number;
+        ranking_confidence: number;
+        ratings_count: number;
+        community_ratings_count: number;
+        consented_location_precision: 'off' | 'none' | 'approximate' | 'precise';
+        location_context: 'consented' | 'non_location_fallback';
+    };
+    videos: GatewayFeedEvent[];
+    events: GatewayFeedEvent[];
+}

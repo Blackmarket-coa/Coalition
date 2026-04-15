@@ -3,6 +3,9 @@ export type FeedEvent = {
     room_id?: string;
     sender: string;
     visibility?: 'public' | 'private' | 'blocked';
+    geo_scope?: 'local' | 'regional' | 'national';
+    escalation_stage?: 'local' | 'regional' | 'national';
+    escalation_score?: number;
     content: {
         action_hint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
         url: string;
@@ -39,12 +42,19 @@ export type FeedItem = {
     importanceAvg: number;
     impactAvg: number;
     ratingsCount: number;
+    geoScope: 'local' | 'regional' | 'national';
+    escalationStage: 'local' | 'regional' | 'national';
+    escalationScore: number;
     actionHint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
 };
 
 export type FeedRequestParams = {
     interests?: string[];
     consented_location_precision?: string;
+    location_context?: 'consented' | 'non_location_fallback';
+    location_latitude?: number;
+    location_longitude?: number;
+    location_region_code?: string;
     joined_rooms?: string[];
     language?: string;
     importance_score?: number;
@@ -98,6 +108,9 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         importanceAvg: Number(event.content?.importance_avg ?? 0),
         impactAvg: Number(event.content?.impact_avg ?? 0),
         ratingsCount: Number(event.content?.ratings_count ?? 0),
+        geoScope: event.geo_scope ?? 'local',
+        escalationStage: event.escalation_stage ?? event.geo_scope ?? 'local',
+        escalationScore: Number(event.escalation_score ?? 0),
         actionHint: event.content?.action_hint,
     };
 }
@@ -117,6 +130,10 @@ export function createFeedRequestUrl(baseEndpoint: string, params: FeedRequestPa
     const query = new URLSearchParams();
     if (params.interests?.length) query.set('interests', params.interests.join(','));
     if (params.consented_location_precision) query.set('consented_location_precision', params.consented_location_precision);
+    if (params.location_context) query.set('location_context', params.location_context);
+    if (typeof params.location_latitude === 'number') query.set('location_latitude', String(params.location_latitude));
+    if (typeof params.location_longitude === 'number') query.set('location_longitude', String(params.location_longitude));
+    if (params.location_region_code) query.set('location_region_code', params.location_region_code);
     if (params.joined_rooms?.length) query.set('joined_rooms', params.joined_rooms.join(','));
     if (params.language) query.set('language', params.language);
     if (typeof params.importance_score === 'number') query.set('importance_score', String(params.importance_score));
