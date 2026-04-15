@@ -9,14 +9,24 @@ export function shouldShowExploreFallback(locationConsent) {
     return !locationConsent?.granted || locationConsent?.precision === 'off';
 }
 
-export function buildFeedRankingParams(baseParams = {}) {
+const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+
+export function buildFeedRankingParams(baseParams = {}, rankingSignals = {}) {
     if (!isCoalitionFeedRankingEnabled()) {
         return baseParams;
     }
 
+    const rankingParams = {};
+    if (isFiniteNumber(rankingSignals?.importance_score)) rankingParams.importance_score = rankingSignals.importance_score;
+    if (isFiniteNumber(rankingSignals?.social_impact_score)) rankingParams.social_impact_score = rankingSignals.social_impact_score;
+    if (isFiniteNumber(rankingSignals?.ranking_confidence)) rankingParams.ranking_confidence = rankingSignals.ranking_confidence;
+    if (isFiniteNumber(rankingSignals?.ratings_count)) rankingParams.ratings_count = rankingSignals.ratings_count;
+    if (isFiniteNumber(rankingSignals?.community_ratings_count)) rankingParams.community_ratings_count = rankingSignals.community_ratings_count;
+
     return {
         ...baseParams,
         ranking_model: 'coalition_social_v1',
+        ...rankingParams,
     };
 }
 

@@ -41,6 +41,11 @@ export type FeedRequestParams = {
     consented_location_precision?: string;
     joined_rooms?: string[];
     language?: string;
+    importance_score?: number;
+    social_impact_score?: number;
+    ranking_confidence?: number;
+    ratings_count?: number;
+    community_ratings_count?: number;
 };
 
 export type CtaModule = 'shop' | 'jobs' | 'aid' | 'governance';
@@ -105,6 +110,11 @@ export function createFeedRequestUrl(baseEndpoint: string, params: FeedRequestPa
     if (params.consented_location_precision) query.set('consented_location_precision', params.consented_location_precision);
     if (params.joined_rooms?.length) query.set('joined_rooms', params.joined_rooms.join(','));
     if (params.language) query.set('language', params.language);
+    if (typeof params.importance_score === 'number') query.set('importance_score', String(params.importance_score));
+    if (typeof params.social_impact_score === 'number') query.set('social_impact_score', String(params.social_impact_score));
+    if (typeof params.ranking_confidence === 'number') query.set('ranking_confidence', String(params.ranking_confidence));
+    if (typeof params.ratings_count === 'number') query.set('ratings_count', String(params.ratings_count));
+    if (typeof params.community_ratings_count === 'number') query.set('community_ratings_count', String(params.community_ratings_count));
     const qs = query.toString();
     return qs ? `${baseEndpoint}?${qs}` : baseEndpoint;
 }
