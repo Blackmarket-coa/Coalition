@@ -12,6 +12,34 @@ import { createFeedPerformanceSample } from '../services/feed-performance';
 import { useAuth } from '../contexts/AuthContext';
 import { loadOnboardingPayload } from '../services/onboarding';
 
+const toFiniteNumber = (value) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const buildRankingSignalParams = (onboardingPayload) => {
+    const persistedRatings = onboardingPayload?.ratings ?? onboardingPayload?.feed_ratings ?? {};
+    const userRatings = persistedRatings?.user ?? onboardingPayload?.user_ratings ?? {};
+    const communityRatings = persistedRatings?.community ?? onboardingPayload?.community_ratings ?? {};
+
+    return {
+        importance_score: toFiniteNumber(userRatings?.importance_score ?? userRatings?.importance ?? onboardingPayload?.importance_score),
+        social_impact_score: toFiniteNumber(
+            communityRatings?.social_impact_score ??
+                communityRatings?.impact_score ??
+                communityRatings?.social_impact ??
+                onboardingPayload?.social_impact_score
+        ),
+        ranking_confidence: toFiniteNumber(
+            userRatings?.confidence ?? communityRatings?.confidence ?? persistedRatings?.confidence ?? onboardingPayload?.ranking_confidence
+        ),
+        ratings_count: toFiniteNumber(userRatings?.count ?? persistedRatings?.ratings_count ?? onboardingPayload?.ratings_count),
+        community_ratings_count: toFiniteNumber(
+            communityRatings?.count ?? persistedRatings?.community_ratings_count ?? onboardingPayload?.community_ratings_count
+        ),
+    };
+};
+
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
     const { locale } = useLanguage();
@@ -19,6 +47,7 @@ const SocialFeedScreen = ({ navigation }) => {
     const { driver } = useAuth();
 
     const onboardingPayload = useMemo(() => loadOnboardingPayload(String(driver?.id ?? 'anon')) ?? {}, [driver]);
+    const rankingSignalParams = useMemo(() => buildRankingSignalParams(onboardingPayload), [onboardingPayload]);
 
     const requestParams = useMemo(
         () =>
@@ -27,8 +56,8 @@ const SocialFeedScreen = ({ navigation }) => {
                 consented_location_precision: locationConsent.granted ? locationConsent.precision : 'none',
                 joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
                 language: locale ?? 'en',
-            }),
-        [channels, locale, locationConsent, onboardingPayload]
+            }, rankingSignalParams),
+        [channels, locale, locationConsent, onboardingPayload, rankingSignalParams]
     );
 
     const ctaToAction = (module: 'shop' | 'jobs' | 'aid' | 'governance'): EcosystemAction => {
