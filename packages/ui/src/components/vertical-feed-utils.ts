@@ -16,6 +16,9 @@ export type FeedEvent = {
         caption?: string;
         trust_score?: number;
         report_count?: number;
+        importance_avg?: number;
+        impact_avg?: number;
+        ratings_count?: number;
     };
     engagement_score?: number;
 };
@@ -33,6 +36,9 @@ export type FeedItem = {
     visibility: 'public' | 'private' | 'blocked';
     trustScore: number;
     reportCount: number;
+    importanceAvg: number;
+    impactAvg: number;
+    ratingsCount: number;
     actionHint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
 };
 
@@ -89,6 +95,9 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         visibility: event.visibility ?? 'public',
         trustScore: Number(event.content?.trust_score ?? 50),
         reportCount: Number(event.content?.report_count ?? 0),
+        importanceAvg: Number(event.content?.importance_avg ?? 0),
+        impactAvg: Number(event.content?.impact_avg ?? 0),
+        ratingsCount: Number(event.content?.ratings_count ?? 0),
         actionHint: event.content?.action_hint,
     };
 }

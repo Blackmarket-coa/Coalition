@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Alert } from 'react-native';
 import { VerticalVideoFeed } from '@blackstar/ui';
 import { useChat } from '../contexts/ChatContext';
@@ -11,6 +11,7 @@ import { logErrorCategory } from '../services/error-logging';
 import { createFeedPerformanceSample } from '../services/feed-performance';
 import { useAuth } from '../contexts/AuthContext';
 import { loadOnboardingPayload } from '../services/onboarding';
+import { config } from '../utils';
 
 const toFiniteNumber = (value) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -40,6 +41,16 @@ const buildRankingSignalParams = (onboardingPayload) => {
     };
 };
 
+const MIN_RATING = 1;
+const MAX_RATING = 5;
+const clampRating = (value) => Math.max(MIN_RATING, Math.min(MAX_RATING, Math.round(Number(value) || 0)));
+
+const resolveGatewayConfig = () => {
+    const host = String(config('BLACKSTAR_GATEWAY_HOST', '')).replace(/\/$/, '');
+    const apiKey = config('BLACKSTAR_GATEWAY_KEY', '');
+    return { host, apiKey };
+};
+
 const SocialFeedScreen = ({ navigation }) => {
     const { channels } = useChat();
     const { locale } = useLanguage();
@@ -48,6 +59,11 @@ const SocialFeedScreen = ({ navigation }) => {
 
     const onboardingPayload = useMemo(() => loadOnboardingPayload(String(driver?.id ?? 'anon')) ?? {}, [driver]);
     const rankingSignalParams = useMemo(() => buildRankingSignalParams(onboardingPayload), [onboardingPayload]);
+    const ratingLifecycleId = useMemo(
+        () => `rating:${String(driver?.id ?? 'anon')}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
+        [driver?.id]
+    );
+    const ratingStateRef = useRef<Record<string, { value: number; updates: number }>>({});
 
     const requestParams = useMemo(
         () =>
@@ -67,6 +83,77 @@ const SocialFeedScreen = ({ navigation }) => {
         return { type: 'OPEN_PROPOSAL' };
     };
 
+    const persistRating = async (item, dimension: 'importance' | 'impact', rawRating: number) => {
+        const boundedRating = clampRating(rawRating);
+        const userId = String(driver?.id ?? 'anon');
+        const ratingKey = `${userId}:${item.id}:${dimension}`;
+        const state = ratingStateRef.current[ratingKey];
+
+        // Abuse guard: one active rating per user/content/dimension lifecycle; update only when value changes.
+        if (state?.value === boundedRating) {
+            trackConversionEvent('feed_rating_ignored', { reason: 'duplicate_value', feed_item_id: item.id, dimension, value: boundedRating });
+            return;
+        }
+
+        const updates = (state?.updates ?? 0) + 1;
+        ratingStateRef.current[ratingKey] = { value: boundedRating, updates };
+
+        const payload = {
+            content_id: item.id,
+            room_id: item.roomId,
+            dimension,
+            rating_value: boundedRating,
+            user_id: userId,
+            rating_key: ratingKey,
+            lifecycle_id: ratingLifecycleId,
+            update_index: updates,
+            sent_at: new Date().toISOString(),
+        };
+        const { host, apiKey } = resolveGatewayConfig();
+
+        if (!host) {
+            trackConversionEvent('feed_rating_failed', { reason: 'gateway_unconfigured', feed_item_id: item.id, dimension, value: boundedRating });
+            return;
+        }
+
+        const endpoints = ['/api/v1/feed/ratings', '/v1/feed/ratings'];
+        let persisted = false;
+        for (const path of endpoints) {
+            try {
+                const response = await fetch(`${host}${path}`, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) {
+                    continue;
+                }
+                persisted = true;
+                break;
+            } catch (_error) {
+                // Try the next endpoint variant.
+            }
+        }
+
+        if (!persisted) {
+            trackConversionEvent('feed_rating_failed', { reason: 'gateway_rejected', feed_item_id: item.id, dimension, value: boundedRating });
+            return;
+        }
+
+        trackConversionEvent('feed_rating_submitted', {
+            feed_item_id: item.id,
+            room_id: item.roomId,
+            dimension,
+            value: boundedRating,
+            lifecycle_id: ratingLifecycleId,
+            update_index: updates,
+        });
+    };
+
     return (
         <VerticalVideoFeed
             requestParams={requestParams}
@@ -81,6 +168,12 @@ const SocialFeedScreen = ({ navigation }) => {
             onReport={(item) => {
                 trackConversionEvent('abuse_report_submitted', { feed_item_id: item.id, room_id: item.roomId });
                 Alert.alert('Report submitted', 'Thanks for helping keep Coalition safe.');
+            }}
+            onRateImportance={(item, rating) => {
+                void persistRating(item, 'importance', rating);
+            }}
+            onRateImpact={(item, rating) => {
+                void persistRating(item, 'impact', rating);
             }}
             onTakeAction={async (item) => {
                 const action = resolveFeedItemAction(item);

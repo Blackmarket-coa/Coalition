@@ -4,7 +4,10 @@ export type ConversionEventName =
     | 'take_action_clicked'
     | 'action_routed'
     | 'action_failed'
-    | 'abuse_report_submitted';
+    | 'abuse_report_submitted'
+    | 'feed_rating_submitted'
+    | 'feed_rating_ignored'
+    | 'feed_rating_failed';
 
 export interface FunnelDashboardPayload {
     funnel_id: 'coalition_social_discovery_v1';
