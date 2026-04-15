@@ -115,7 +115,7 @@ const LoginScreen = ({ navigation, route }) => {
                         <KeyboardAvoidingView style={tailwind('')} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={100}>
                             <View style={tailwind('mb-10 flex items-center justify-center rounded-full')}>
                                 <FastImage
-                                    source={_BRANDING_LOGO ? { uri: _BRANDING_LOGO } : _LOGO ? { uri: _LOGO } : require('../../../../assets/icon.png')}
+                                    source={_BRANDING_LOGO ? { uri: _BRANDING_LOGO } : _LOGO ? { uri: _LOGO } : require('../../../../apps/mobile/assets/icon.png')}
                                     style={tailwind('w-20 h-20 rounded-full')}
                                 />
                             </View>

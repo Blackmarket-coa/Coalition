@@ -242,7 +242,7 @@ const ChatScreen = ({ route }) => {
                                     ]}
                                 />
                                 <FastImage
-                                    source={participant.avatar_url ? { uri: participant.avatar_url } : require('../../../../assets/icon.png')}
+                                    source={participant.avatar_url ? { uri: participant.avatar_url } : require('../../../../apps/mobile/assets/icon.png')}
                                     style={tailwind('w-10 h-10 rounded-full')}
                                 />
                             </View>
@@ -409,7 +409,7 @@ const ChatScreen = ({ route }) => {
                                                 ]}
                                             />
                                             <FastImage
-                                                source={item.avatar_url ? { uri: item.avatar_url } : require('../../../../assets/icon.png')}
+                                                source={item.avatar_url ? { uri: item.avatar_url } : require('../../../../apps/mobile/assets/icon.png')}
                                                 style={tailwind('w-10 h-10 rounded-full')}
                                             />
                                         </View>

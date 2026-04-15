@@ -255,8 +255,8 @@ const DriverOrderManagementScreen = () => {
                     startingDate={startingDate}
                     selectedDate={new Date(currentDate)}
                     onDateSelected={(selectedDate) => setCurrentDate(format(new Date(selectedDate), 'yyyy-MM-dd HH:mm:ssXXX'))}
-                    iconLeft={require('../../assets/nv-arrow-left.png')}
-                    iconRight={require('../../assets/nv-arrow-right.png')}
+                    iconLeft={require('../../apps/mobile/assets/nv-arrow-left.png')}
+                    iconRight={require('../../apps/mobile/assets/nv-arrow-right.png')}
                 />
             </YStack>
             <YStack bg='$surface' px='$3' py='$4' borderBottomWidth={1} borderTopWidth={0} borderColor={isDarkMode ? '$borderColor' : '$borderColorWithShadow'}>

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/navigator-icon-transparent.png" width="140" height="140" />
+  <img src="apps/mobile/assets/navigator-icon-transparent.png" width="140" height="140" />
 </p>
 <p align="center">
 Coalition is a social-first discovery and activation app for the Blackmarket ecosystem, with backward-compatible driver workflows for Blackstar operations.
