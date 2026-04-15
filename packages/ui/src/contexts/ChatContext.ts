@@ -1,1 +1,1 @@
-export * from '@blackstar/core/src/contexts/ChatContext';
+export { ChatProvider, useChat } from '@blackstar/core';

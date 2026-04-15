@@ -1,1 +1,1 @@
-export { default } from '../../../../src/hooks/use-dimensions';
+export { useDimensions as default } from '@blackstar/core';
