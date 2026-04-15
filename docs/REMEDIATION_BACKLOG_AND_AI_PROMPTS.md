@@ -44,7 +44,7 @@ Created to convert currently identified TODO/TBD/incomplete planning signals int
 
 6. **Track code-level TODOs as issues**
    - Current code TODOs:
-     - Plugin extensibility in `src/legacy/config.js`.
+     - Plugin extensibility in `legacy/runtime/config.js`.
      - Android backup include/exclude policy in `android/app/src/main/res/xml/data_extraction_rules.xml`.
    - Done when:
      - Each TODO has owner, acceptance criteria, and target release.
