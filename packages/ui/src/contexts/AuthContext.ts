@@ -1,1 +1,1 @@
-export * from '@blackstar/core/src/contexts/AuthContext';
+export { AuthProvider, useAuth } from '@blackstar/core';

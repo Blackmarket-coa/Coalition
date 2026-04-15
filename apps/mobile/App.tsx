@@ -5,17 +5,22 @@ import { Toasts } from '@backpackapp-io/react-native-toast';
 import { PortalProvider, PortalHost } from '@gorhom/portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { AuthProvider } from '../../src/contexts/AuthContext';
-import { SocketClusterProvider } from '../../src/contexts/SocketClusterContext';
-import { OrderManagerProvider } from '../../src/contexts/OrderManagerContext';
-import { LanguageProvider } from '../../src/contexts/LanguageContext';
-import { TempStoreProvider } from '../../src/contexts/TempStoreContext';
+import {
+    AuthProvider,
+    ChatProvider,
+    ConfigProvider,
+    LanguageProvider,
+    LocationProvider,
+    NotificationProvider,
+    OrderManagerProvider,
+    SocketClusterProvider,
+    TempStoreProvider,
+    ThemeProvider,
+    useThemeContext,
+} from '@blackstar/core';
+
 import AppNavigator from '../../src/navigation/AppNavigator';
-import { ThemeProvider, useThemeContext } from '../../src/contexts/ThemeContext';
-import { NotificationProvider } from '../../src/contexts/NotificationContext';
-import { ChatProvider } from '../../src/contexts/ChatContext';
-import { LocationProvider } from '../../src/contexts/LocationContext';
-import { ConfigProvider } from '../../src/contexts/ConfigContext';
+
 import config from '../../tamagui.config';
 
 function AppContent(): React.JSX.Element {
