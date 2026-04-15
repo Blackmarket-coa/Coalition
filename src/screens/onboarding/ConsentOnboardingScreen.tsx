@@ -1,18 +1,36 @@
 import React, { useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button, Text, YStack } from 'tamagui';
-import { LOCATION_CONSENT_STORAGE_KEY, trackOnboardingEvent } from '../../services/onboarding';
+import { trackOnboardingEvent } from '../../services/onboarding';
+import { buildLocationConsent, LocationConsentSettings } from '../../utils/location-consent';
+import { saveLocationConsentSettings } from '../../utils/location-consent-storage';
+
+const mapActionToConsentSettings = (action: 'granted' | 'declined' | 'skipped'): LocationConsentSettings => {
+    if (action === 'granted') {
+        return buildLocationConsent(true, 'precise');
+    }
+
+    return buildLocationConsent(false, 'off');
+};
 
 const ConsentOnboardingScreen = ({ navigation, route }) => {
     useEffect(() => {
         trackOnboardingEvent('onboarding_step_viewed', { step: 'Consent' });
     }, []);
 
-    const continueWithConsent = async (status: 'granted' | 'declined' | 'skipped') => {
-        await AsyncStorage.setItem(LOCATION_CONSENT_STORAGE_KEY, status);
+    const continueWithConsent = (status: 'granted' | 'declined' | 'skipped') => {
+        const consentSettings = mapActionToConsentSettings(status);
+        saveLocationConsentSettings(consentSettings);
         trackOnboardingEvent(status === 'granted' ? 'consent_granted' : 'consent_declined', { status });
-        trackOnboardingEvent('onboarding_step_completed', { step: 'Consent', status });
-        navigation.navigate('SuggestedCommunities', { payload: { ...(route?.params?.payload ?? {}), consent: { location: status } } });
+        trackOnboardingEvent('onboarding_step_completed', { step: 'Consent', status, consentSettings });
+        navigation.navigate('SuggestedCommunities', {
+            payload: {
+                ...(route?.params?.payload ?? {}),
+                consent: {
+                    location: status,
+                    locationSettings: consentSettings,
+                },
+            },
+        });
     };
 
     return (

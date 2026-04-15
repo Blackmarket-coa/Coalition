@@ -1,8 +1,8 @@
 import { config } from '../utils';
+import { LocationConsentSettings, LocationConsentStatus } from '../utils/location-consent';
 import { get as getStorageMap, set as setStorageMap } from '../hooks/use-storage';
 
 export const ONBOARDING_STORAGE_KEY_PREFIX = 'user_onboarding';
-export const LOCATION_CONSENT_STORAGE_KEY = 'location_consent';
 
 // 20+ seed interests used by InterestPicker chips.
 export const seedInterests = [
@@ -46,7 +46,7 @@ export interface OnboardingPayload {
     interests?: string[];
     ecosystemGoals?: string[];
     ecosystemActions?: string[];
-    consent?: { location: 'granted' | 'declined' | 'skipped' };
+    consent?: { location: LocationConsentStatus | 'skipped'; locationSettings?: LocationConsentSettings };
     suggestedCommunities?: string[];
     completedAt?: string;
 }

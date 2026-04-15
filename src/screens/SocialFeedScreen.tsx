@@ -65,16 +65,26 @@ const SocialFeedScreen = ({ navigation }) => {
     );
     const ratingStateRef = useRef<Record<string, { value: number; updates: number }>>({});
 
-    const requestParams = useMemo(
-        () =>
-            buildFeedRankingParams({
+    const requestParams = useMemo(() => {
+        const consentedLocationPrecision =
+            locationConsent.status === 'granted' && locationConsent.granted && locationConsent.precision !== 'off'
+                ? locationConsent.precision
+                : 'none';
+
+        return buildFeedRankingParams(
+            {
                 interests: getFeedInterestsFromOnboarding(onboardingPayload),
-                consented_location_precision: locationConsent.granted ? locationConsent.precision : 'none',
+                consented_location_precision: consentedLocationPrecision,
                 joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
                 language: locale ?? 'en',
-            }, rankingSignalParams),
-        [channels, locale, locationConsent, onboardingPayload, rankingSignalParams]
-    );
+            },
+            rankingSignalParams,
+            {
+                consented: locationConsent.status === 'granted' && locationConsent.granted,
+                precision: consentedLocationPrecision,
+            }
+        );
+    }, [channels, locale, locationConsent, onboardingPayload, rankingSignalParams]);
 
     const ctaToAction = (module: 'shop' | 'jobs' | 'aid' | 'governance'): EcosystemAction => {
         if (module === 'shop') return { type: 'SHOP_ITEM' };
