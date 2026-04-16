@@ -1,8 +1,20 @@
+import { deriveSpatialEventStatus, type SpatialEventStatus } from './event-timeline';
 import { config } from '../utils';
 
 export const SPATIAL_LAYER_KEYS = ['vendors', 'jobs', 'gardens', 'votes', 'aid', 'infra'] as const;
 export type SpatialLayerKey = (typeof SPATIAL_LAYER_KEYS)[number];
 export type SpatialVisibility = 'public' | 'community' | 'private';
+export type SpatialEventType =
+    | 'arson'
+    | 'wildfire'
+    | 'farm'
+    | 'community_event'
+    | 'mass_shooting'
+    | 'infrastructure'
+    | 'aid'
+    | 'jobs'
+    | 'other';
+
 export interface SpatialEncryptedEnvelope {
     v: 1;
     alg: string;
@@ -20,6 +32,12 @@ export interface SpatialFeedItem {
     latitude: number;
     longitude: number;
     visibility: SpatialVisibility;
+    eventType: SpatialEventType;
+    startsAt: string;
+    endsAt?: string;
+    status: SpatialEventStatus;
+    severity?: 'low' | 'moderate' | 'high' | 'critical';
+    confidence?: number;
     source?: 'gateway' | 'medusa' | 'blackstar' | 'blackout';
     meta?: Record<string, unknown>;
     encrypted?: SpatialEncryptedEnvelope;
@@ -33,6 +51,13 @@ export interface SpatialDecryptContext {
     decryptWithKey: (params: { envelope: SpatialEncryptedEnvelope; keyMaterial: string }) => Promise<string>;
     onTelemetry?: (event: { status: 'success' | 'failure'; reason?: SpatialDecryptResult['reason']; keyId: string }) => void;
 }
+
+type SpatialFeedPayloadItem = Omit<SpatialFeedItem, 'status'> & { status?: SpatialEventStatus };
+
+const normalizeSpatialFeedItem = (item: SpatialFeedPayloadItem): SpatialFeedItem => ({
+    ...item,
+    status: item.status ?? deriveSpatialEventStatus({ startsAt: item.startsAt, endsAt: item.endsAt }),
+});
 
 export const maybeDecryptSpatialEnvelope = async (envelope: SpatialEncryptedEnvelope | undefined, context: SpatialDecryptContext): Promise<SpatialDecryptResult> => {
     if (!envelope) {
@@ -72,12 +97,85 @@ export interface UnifiedSpatialFeedRequestOptions {
 }
 
 const sampleFeed: SpatialFeedItem[] = [
-    { id: 'vendor-1', layer: 'vendors', title: 'Co-op Market', latitude: 40.7128, longitude: -74.006, visibility: 'public', source: 'medusa' },
-    { id: 'job-1', layer: 'jobs', title: 'Courier Shift', latitude: 40.717, longitude: -74.001, visibility: 'community', source: 'blackstar' },
-    { id: 'garden-1', layer: 'gardens', title: 'Community Garden', latitude: 40.7103, longitude: -74.009, visibility: 'public' },
-    { id: 'vote-1', layer: 'votes', title: 'Transit Proposal', latitude: 40.7146, longitude: -74.0112, visibility: 'community', source: 'blackout' },
-    { id: 'aid-1', layer: 'aid', title: 'Food Mutual Aid', latitude: 40.7195, longitude: -74.0075, visibility: 'public' },
-    { id: 'infra-1', layer: 'infra', title: 'Solar Microgrid', latitude: 40.7091, longitude: -74.0034, visibility: 'public' },
+    {
+        id: 'vendor-1',
+        layer: 'vendors',
+        title: 'Sunrise Farm Stand Pop-up',
+        latitude: 40.7128,
+        longitude: -74.006,
+        visibility: 'public',
+        eventType: 'farm',
+        startsAt: '2027-05-03T13:00:00Z',
+        endsAt: '2027-05-03T18:00:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2027-05-03T13:00:00Z', endsAt: '2027-05-03T18:00:00Z' }),
+        source: 'medusa',
+    },
+    {
+        id: 'job-1',
+        layer: 'jobs',
+        title: 'Storm Recovery Cleanup Shift',
+        latitude: 40.717,
+        longitude: -74.001,
+        visibility: 'community',
+        eventType: 'jobs',
+        startsAt: '2026-03-30T08:00:00Z',
+        endsAt: '2026-12-31T22:00:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2026-03-30T08:00:00Z', endsAt: '2026-12-31T22:00:00Z' }),
+        source: 'blackstar',
+    },
+    {
+        id: 'garden-1',
+        layer: 'gardens',
+        title: 'Neighborhood Wildfire Preparedness Briefing',
+        latitude: 40.7103,
+        longitude: -74.009,
+        visibility: 'public',
+        eventType: 'wildfire',
+        startsAt: '2025-09-11T18:30:00Z',
+        endsAt: '2025-09-11T20:00:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2025-09-11T18:30:00Z', endsAt: '2025-09-11T20:00:00Z' }),
+        severity: 'moderate',
+        confidence: 0.72,
+    },
+    {
+        id: 'vote-1',
+        layer: 'votes',
+        title: 'Community Safety Town Hall',
+        latitude: 40.7146,
+        longitude: -74.0112,
+        visibility: 'community',
+        eventType: 'community_event',
+        startsAt: '2026-04-01T00:00:00Z',
+        endsAt: '2026-10-01T00:00:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2026-04-01T00:00:00Z', endsAt: '2026-10-01T00:00:00Z' }),
+        source: 'blackout',
+    },
+    {
+        id: 'aid-1',
+        layer: 'aid',
+        title: 'Mutual Aid Distribution for Displaced Residents',
+        latitude: 40.7195,
+        longitude: -74.0075,
+        visibility: 'public',
+        eventType: 'aid',
+        startsAt: '2026-02-15T09:00:00Z',
+        endsAt: '2026-11-15T18:00:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2026-02-15T09:00:00Z', endsAt: '2026-11-15T18:00:00Z' }),
+    },
+    {
+        id: 'infra-1',
+        layer: 'infra',
+        title: 'Substation Fire Disruption',
+        latitude: 40.7091,
+        longitude: -74.0034,
+        visibility: 'public',
+        eventType: 'infrastructure',
+        startsAt: '2025-12-01T03:15:00Z',
+        endsAt: '2025-12-01T09:30:00Z',
+        status: deriveSpatialEventStatus({ startsAt: '2025-12-01T03:15:00Z', endsAt: '2025-12-01T09:30:00Z' }),
+        severity: 'high',
+        confidence: 0.91,
+    },
 ];
 
 export const buildUnifiedSpatialFeedPath = (layers: SpatialLayerKey[]): string => {
@@ -112,11 +210,11 @@ export const getUnifiedSpatialFeed = async (
             throw new Error(`Spatial feed request failed with ${response.status}`);
         }
 
-        const payload = (await response.json()) as SpatialFeedResponse;
+        const payload = (await response.json()) as SpatialFeedResponse & { items?: SpatialFeedPayloadItem[] };
         return {
             generatedAt: payload.generatedAt ?? new Date().toISOString(),
             bbox: payload.bbox,
-            items: Array.isArray(payload.items) ? payload.items : [],
+            items: Array.isArray(payload.items) ? payload.items.map(normalizeSpatialFeedItem) : [],
         };
     } catch (error) {
         console.warn('Falling back to local unified spatial feed sample:', error);
