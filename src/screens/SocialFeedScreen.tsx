@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { VerticalVideoFeed } from '@blackstar/ui';
 import { useChat } from '../contexts/ChatContext';
@@ -10,7 +10,7 @@ import { buildFeedRankingParams, getFeedInterestsFromOnboarding, resolveFeedItem
 import { logErrorCategory } from '../services/error-logging';
 import { createFeedPerformanceSample } from '../services/feed-performance';
 import { useAuth } from '../contexts/AuthContext';
-import { loadOnboardingPayload } from '../services/onboarding';
+import { loadOnboardingPayload, persistOnboardingPayload } from '../services/onboarding';
 import { config } from '../utils';
 
 const toFiniteNumber = (value) => {
@@ -51,19 +51,42 @@ const resolveGatewayConfig = () => {
     return { host, apiKey };
 };
 
-const SocialFeedScreen = ({ navigation }) => {
+const toCategoryKey = (item) => {
+    const fallback = String(item?.caption ?? '').trim().split(/\s+/).slice(0, 2).join(' ');
+    return String(item?.category ?? item?.eventType ?? fallback ?? 'community').trim().toLowerCase() || 'community';
+};
+
+const applyInterestWeights = (baseInterests = [], weights: Record<string, number> = {}) => {
+    const weightedEntries = Object.entries(weights).sort((a, b) => b[1] - a[1]).map(([category]) => category);
+    const baseNormalized = baseInterests.map((interest) => String(interest).trim().toLowerCase()).filter(Boolean);
+    const merged = [...weightedEntries, ...baseNormalized];
+    return [...new Set(merged)].slice(0, 16);
+};
+
+const SocialFeedScreen = ({ navigation, route }) => {
     const { channels } = useChat();
     const { locale } = useLanguage();
     const { locationConsent } = useLocationConsent();
     const { driver } = useAuth();
 
     const onboardingPayload = useMemo(() => loadOnboardingPayload(String(driver?.id ?? 'anon')) ?? {}, [driver]);
+    const onboardingInterests = useMemo(() => getFeedInterestsFromOnboarding(onboardingPayload), [onboardingPayload]);
+    const [interestWeights, setInterestWeights] = useState<Record<string, number>>(() =>
+        onboardingInterests.reduce((state, value, index) => {
+            state[String(value).trim().toLowerCase()] = Math.max(1, onboardingInterests.length - index);
+            return state;
+        }, {})
+    );
+
     const rankingSignalParams = useMemo(() => buildRankingSignalParams(onboardingPayload), [onboardingPayload]);
     const ratingLifecycleId = useMemo(
         () => `rating:${String(driver?.id ?? 'anon')}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
         [driver?.id]
     );
     const ratingStateRef = useRef<Record<string, { value: number; updates: number }>>({});
+    const seenItemsRef = useRef<Record<string, boolean>>({});
+
+    const rankedInterests = useMemo(() => applyInterestWeights(onboardingInterests, interestWeights), [onboardingInterests, interestWeights]);
 
     const requestParams = useMemo(() => {
         const consentedLocationPrecision =
@@ -73,7 +96,7 @@ const SocialFeedScreen = ({ navigation }) => {
 
         return buildFeedRankingParams(
             {
-                interests: getFeedInterestsFromOnboarding(onboardingPayload),
+                interests: rankedInterests,
                 consented_location_precision: consentedLocationPrecision,
                 joined_rooms: (channels ?? []).map((channel) => channel.id).filter(Boolean),
                 language: locale ?? 'en',
@@ -84,7 +107,7 @@ const SocialFeedScreen = ({ navigation }) => {
                 precision: consentedLocationPrecision,
             }
         );
-    }, [channels, locale, locationConsent, onboardingPayload, rankingSignalParams]);
+    }, [channels, locale, locationConsent, rankedInterests, rankingSignalParams]);
 
     const ctaToAction = (module: 'shop' | 'jobs' | 'aid' | 'governance'): EcosystemAction => {
         if (module === 'shop') return { type: 'SHOP_ITEM' };
@@ -164,9 +187,46 @@ const SocialFeedScreen = ({ navigation }) => {
         });
     };
 
+    const persistRankedInterests = async (nextWeights) => {
+        const userId = String(driver?.id ?? 'anon');
+        const nextInterests = applyInterestWeights(onboardingInterests, nextWeights);
+        const nextPayload = { ...onboardingPayload, interests: nextInterests, feedInterestWeights: nextWeights };
+        await persistOnboardingPayload(userId, nextPayload);
+    };
+
+    const handleVisibleItem = (item) => {
+        if (!item?.id || seenItemsRef.current[item.id]) return;
+        seenItemsRef.current[item.id] = true;
+        const key = toCategoryKey(item);
+        setInterestWeights((current) => {
+            const next = { ...current, [key]: (current[key] ?? 0) + 1 };
+            void persistRankedInterests(next);
+            return next;
+        });
+    };
+
+    const openExploreForFeedItem = (item) => {
+        const markerFocus = {
+            eventId: item.id,
+            roomId: item.roomId,
+            markerId: item.markerId ?? item.id,
+            status: item.status,
+            eventType: item.eventType,
+            latitude: item.latitude,
+            longitude: item.longitude,
+        };
+        navigation.navigate('Explore', { screen: 'Test', params: { markerFocus, feedBridgeId: item.id, feedRoomId: item.roomId } });
+    };
+
+    const focusParam = route?.params?.feedBridgeId ?? route?.params?.feedRoomId ?? route?.params?.eventId ?? route?.params?.roomId;
+
     return (
         <VerticalVideoFeed
+            initialFocusItemId={focusParam}
             requestParams={requestParams}
+            onVisibleItem={handleVisibleItem}
+            onOpenFeedItem={openExploreForFeedItem}
+            onNavigateToMap={openExploreForFeedItem}
             onMissingRoom={() => Alert.alert('Room unavailable', 'Comments are unavailable for this video right now.')}
             onErrorCategory={(message, context) => logErrorCategory('feed_load_error', message, context)}
             onPerformanceSample={(sample) => {

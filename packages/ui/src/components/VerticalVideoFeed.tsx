@@ -5,7 +5,21 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withT
 import Config from 'react-native-config';
 import { Button, Circle, Image, Paragraph, Text, XStack, YStack } from 'tamagui';
 import ChatPanel from './ChatPanel';
-import { createFeedRequestUrl, CtaModule, FeedEvent, FeedItem, FeedRequestParams, filterVisibleFeedItems, getTrustSignal, handleCommentAction, injectCtaCards, RenderFeedItem, toFeedItem } from './vertical-feed-utils';
+import {
+    createFeedRequestUrl,
+    CtaModule,
+    FeedEvent,
+    FeedItem,
+    FeedRequestParams,
+    FeedTimelineFilter,
+    filterVisibleFeedItems,
+    getTrustSignal,
+    handleCommentAction,
+    injectCtaCards,
+    isFeedItemInTimeline,
+    RenderFeedItem,
+    toFeedItem,
+} from './vertical-feed-utils';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -14,8 +28,11 @@ type VerticalVideoFeedProps = {
     height?: number;
     requestParams?: FeedRequestParams;
     ctaInterval?: number;
+    initialFocusItemId?: string;
     onOpenProfile?: (item: FeedItem) => void;
     onNavigateToMap?: (item: FeedItem) => void;
+    onOpenFeedItem?: (item: FeedItem) => void;
+    onVisibleItem?: (item: FeedItem) => void;
     onOpenChatPanel?: (item: FeedItem) => void;
     onMissingRoom?: (item: FeedItem) => void;
     onOpenCta?: (module: CtaModule) => void;
@@ -27,6 +44,12 @@ type VerticalVideoFeedProps = {
     onErrorCategory?: (message: string, context?: Record<string, any>) => void;
     onPerformanceSample?: (sample: { mediaStartLatencyMs: number; scrollFrameDrops: number }) => void;
 };
+
+const TIMELINE_FILTERS: { label: string; value: FeedTimelineFilter }[] = [
+    { label: 'Upcoming', value: 'upcoming' },
+    { label: 'Happening Now', value: 'live' },
+    { label: 'Past', value: 'past' },
+];
 
 const solarpunk = {
     bg: '#08120f',
@@ -123,9 +146,27 @@ const CtaCard = ({ item, height, onOpenCta }: { item: RenderFeedItem; height: nu
     );
 };
 
-export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, onOpenProfile, onNavigateToMap, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport, onRateImportance, onRateImpact, onErrorCategory, onPerformanceSample }: VerticalVideoFeedProps) => {
+const EventCard = ({ item, height, onOpen }: { item: FeedItem; height: number; onOpen: (item: FeedItem) => void }) => (
+    <Pressable onPress={() => onOpen(item)} style={{ width: SCREEN_WIDTH, height }}>
+        <YStack width='100%' height='100%' justifyContent='center' px='$5' bg={solarpunk.bg}>
+            <YStack width='100%' bg='rgba(35,193,107,0.12)' borderWidth={1} borderColor={solarpunk.accentGreen} p='$4' borderRadius={18} gap='$2'>
+                <Text color={solarpunk.accentGold} fontSize={22} fontWeight='700'>{item.eventType ?? 'Community Event'}</Text>
+                <Paragraph color={solarpunk.white}>{item.caption || 'Informational update from your community.'}</Paragraph>
+                <Text color={solarpunk.dim} fontSize={12}>Status: {item.status ?? 'upcoming'}</Text>
+                {typeof item.distance === 'number' ? <Text color={solarpunk.dim} fontSize={12}>Distance: {item.distance.toFixed(1)} mi</Text> : null}
+                {typeof item.latitude === 'number' && typeof item.longitude === 'number' ? (
+                    <Text color={solarpunk.dim} fontSize={12}>Map: {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</Text>
+                ) : null}
+                <Button mt='$2' onPress={() => onOpen(item)}>Open on Explore Map</Button>
+            </YStack>
+        </YStack>
+    </Pressable>
+);
+
+export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requestParams, ctaInterval = 4, initialFocusItemId, onOpenProfile, onNavigateToMap, onOpenFeedItem, onVisibleItem, onOpenChatPanel, onMissingRoom, onOpenCta, onShare, onTakeAction, onReport, onRateImportance, onRateImpact, onErrorCategory, onPerformanceSample }: VerticalVideoFeedProps) => {
     const [items, setItems] = useState<FeedItem[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
+    const [timelineFilter, setTimelineFilter] = useState<FeedTimelineFilter>('live');
     const [expandedCaptionId, setExpandedCaptionId] = useState<string | null>(null);
     const [chatItem, setChatItem] = useState<FeedItem | null>(null);
     const [userRatings, setUserRatings] = useState<Record<string, { importance?: number; impact?: number }>>({});
@@ -133,6 +174,7 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const lastTap = useRef<{ id: string; at: number } | null>(null);
     const fetchStartedAtRef = useRef(Date.now());
+    const listRef = useRef<FlatList<RenderFeedItem> | null>(null);
     const burstScale = useSharedValue(0);
 
     const burstStyle = useAnimatedStyle(() => ({ transform: [{ scale: burstScale.value }], opacity: burstScale.value === 0 ? 0 : 1 }));
@@ -152,7 +194,7 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
             if (!response.ok) throw new Error(`Feed request failed (${response.status})`);
             const payload = await response.json();
             const events = (payload?.videos ?? payload?.events ?? []) as FeedEvent[];
-            const nextItems = events.filter((event) => Boolean(event?.content?.url)).map(toFeedItem);
+            const nextItems = events.map(toFeedItem);
             setItems(filterVisibleFeedItems(nextItems));
             onPerformanceSample?.({ mediaStartLatencyMs: Date.now() - fetchStartedAtRef.current, scrollFrameDrops: 0 });
         } catch (error) {
@@ -162,17 +204,22 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
         } finally {
             setIsLoading(false);
         }
-    }, [requestUrl]);
+    }, [requestUrl, onPerformanceSample, onErrorCategory]);
 
     useEffect(() => {
         loadFeed();
     }, [loadFeed]);
 
-    const renderItems = useMemo(() => injectCtaCards(items, ctaInterval), [items, ctaInterval]);
+    const timelineItems = useMemo(() => items.filter((item) => isFeedItemInTimeline(item, timelineFilter)), [items, timelineFilter]);
+    const renderItems = useMemo(() => injectCtaCards(timelineItems, ctaInterval), [timelineItems, ctaInterval]);
 
     const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
         const top = viewableItems[0];
         if (top?.index != null) setActiveIndex(top.index);
+        const topItem = top?.item as RenderFeedItem | undefined;
+        if (topItem?.type === 'video') {
+            onVisibleItem?.(topItem.item);
+        }
     }).current;
 
     const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 70 }), []);
@@ -191,20 +238,32 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
         lastTap.current = { id: item.id, at: now };
     }, [triggerBurst]);
 
+    useEffect(() => {
+        if (!initialFocusItemId || renderItems.length === 0) return;
+        const targetIndex = renderItems.findIndex((entry) => entry.type === 'video' && (entry.item.id === initialFocusItemId || entry.item.roomId === initialFocusItemId));
+        if (targetIndex >= 0) {
+            listRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+        }
+    }, [initialFocusItemId, renderItems]);
+
     const renderItem = ({ item, index }: { item: RenderFeedItem; index: number }) => {
         if (item.type === 'cta') {
             return <CtaCard item={item} height={height} onOpenCta={onOpenCta} />;
         }
 
         const feedItem = item.item;
+        if (feedItem.kind === 'event') {
+            return <EventCard item={feedItem} height={height} onOpen={(openedItem) => onOpenFeedItem?.(openedItem)} />;
+        }
+
         const isActive = index === activeIndex;
         const isExpanded = expandedCaptionId === feedItem.id;
         const myRatings = userRatings[feedItem.id];
 
         return (
-            <Pressable onPress={handleDoubleTapLike(feedItem)} onLongPress={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl }))} style={{ width: SCREEN_WIDTH, height }}>
+            <Pressable onPress={handleDoubleTapLike(feedItem)} onLongPress={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl ?? '' }))} style={{ width: SCREEN_WIDTH, height }}>
                 <YStack width='100%' height='100%' bg={solarpunk.bg}>
-                    <Video source={{ uri: feedItem.videoUrl }} style={StyleSheet.absoluteFill} paused={!isActive} repeat resizeMode='cover' playInBackground={false} playWhenInactive={false} controls={false} />
+                    <Video source={{ uri: feedItem.videoUrl ?? '' }} style={StyleSheet.absoluteFill} paused={!isActive} repeat resizeMode='cover' playInBackground={false} playWhenInactive={false} controls={false} />
                     <Animated.View pointerEvents='none' style={[styles.burstHeart, burstStyle]}><Text color={solarpunk.accentGold} fontSize={72}>♥</Text></Animated.View>
 
                     <RightSidebar
@@ -212,8 +271,11 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
                         onOpenProfile={() => onOpenProfile?.(feedItem)}
                         onLike={triggerBurst}
                         onOpenComments={() => handleCommentAction(feedItem, { onOpenChatPanel, setChatItem, onMissingRoom })}
-                        onShare={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl }))}
-                        onNavigateToMap={() => onNavigateToMap?.(feedItem)}
+                        onShare={() => (onShare ? onShare(feedItem) : Share.share({ message: feedItem.videoUrl ?? '' }))}
+                        onNavigateToMap={() => {
+                            onNavigateToMap?.(feedItem);
+                            onOpenFeedItem?.(feedItem);
+                        }}
                         onRateImportance={(rating) => {
                             const bounded = clampRating(rating);
                             setUserRatings((prev) => ({ ...prev, [feedItem.id]: { ...prev[feedItem.id], importance: bounded } }));
@@ -252,12 +314,20 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
     }
 
     if (renderItems.length === 0) {
-        return <YStack width='100%' height={height} justifyContent='center' alignItems='center' px='$5' bg={solarpunk.bg} gap='$3'><Text color={solarpunk.white}>No videos yet. Check back soon.</Text><Button onPress={loadFeed}>Refresh</Button></YStack>;
+        return <YStack width='100%' height={height} justifyContent='center' alignItems='center' px='$5' bg={solarpunk.bg} gap='$3'><Text color={solarpunk.white}>No feed items yet. Check back soon.</Text><Button onPress={loadFeed}>Refresh</Button></YStack>;
     }
 
     return (
         <YStack width='100%' height={height} bg={solarpunk.bg}>
+            <XStack px='$3' py='$2' gap='$2' justifyContent='center'>
+                {TIMELINE_FILTERS.map((filter) => (
+                    <Button key={filter.value} size='$3' variant={timelineFilter === filter.value ? undefined : 'outlined'} onPress={() => setTimelineFilter(filter.value)}>
+                        {filter.label}
+                    </Button>
+                ))}
+            </XStack>
             <FlatList
+                ref={listRef}
                 data={renderItems}
                 keyExtractor={(item) => (item.type === 'cta' ? item.id : item.item.id)}
                 renderItem={renderItem}
