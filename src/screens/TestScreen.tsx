@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Button, Text, XStack, YStack } from 'tamagui';
-import { SPATIAL_LAYER_KEYS, SpatialFeedItem, SpatialLayerKey, getGatewayFeedConfig, getUnifiedSpatialFeed } from '../services/spatial-feed';
+import { SPATIAL_LAYER_KEYS, SpatialFeedItem, SpatialLayerKey, getGatewayFeedConfig, getUnifiedSpatialFeed, subscribeOptimisticSpatialFeed } from '../services/spatial-feed';
 import { mergeMedusaSpatialMetadata } from '../services/medusa-location';
 
 interface ClusterPoint {
@@ -89,6 +89,18 @@ const TestScreen = () => {
         };
 
         load();
+    }, []);
+
+    useEffect(() => {
+        const unsubscribe = subscribeOptimisticSpatialFeed((optimisticItems) => {
+            setFeedItems((current) => {
+                const currentById = new Map(current.map((item) => [item.id, item]));
+                optimisticItems.forEach((item) => currentById.set(item.id, item));
+                return [...currentById.values()];
+            });
+        });
+
+        return unsubscribe;
     }, []);
 
     const visibleItems = useMemo(() => feedItems.filter((item) => activeLayers[item.layer]), [feedItems, activeLayers]);

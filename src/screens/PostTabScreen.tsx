@@ -16,11 +16,7 @@ const PostTabScreen = ({ navigation }) => {
             return;
         }
 
-        try {
-            navigation.navigate(card.route);
-        } catch {
-            Alert.alert('Coming soon', `${card.title} flow will be connected soon.`);
-        }
+        navigation.navigate(card.route);
     };
 
     return <PostTab isProvider={isProvider} onSelect={navigateToComposer} onUpsellPress={() => navigation.navigate('ProviderOnboarding')} />;

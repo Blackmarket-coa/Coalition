@@ -12,6 +12,7 @@ import ProofOfDeliveryScreen from '../screens/ProofOfDeliveryScreen';
 import PostTabScreen from '../screens/PostTabScreen';
 import SocialFeedScreen from '../screens/SocialFeedScreen';
 import ExploreMapScreen from '../screens/ExploreMapScreen';
+import CreateMapEventScreen from '../screens/CreateMapEventScreen';
 import ChatHomeScreen from '../screens/ChatHomeScreen';
 import ChatChannelScreen from '../screens/ChatChannelScreen';
 import ChatParticipantsScreen from '../screens/ChatParticipantsScreen';
@@ -44,6 +45,7 @@ const FeedTab = createNativeStackNavigator({
         FeedMain: { screen: SocialFeedScreen, options: { headerShown: false } },
         // Backward compatibility: preserve PostTab route name for existing deep links.
         PostTab: { screen: PostTabScreen, options: { headerShown: false } },
+        CreateMapEvent: { screen: CreateMapEventScreen, options: { headerShown: false, presentation: 'modal' } },
     },
 });
 

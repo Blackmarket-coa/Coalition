@@ -3,7 +3,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Button, Paragraph, Text, XStack, YStack } from 'tamagui';
 
-export type PostTypeId = 'offering' | 'mutual_aid' | 'job' | 'proposal' | 'campaign' | 'video';
+export type PostTypeId = 'offering' | 'mutual_aid' | 'job' | 'proposal' | 'campaign' | 'video' | 'map_event';
 
 export type PostTypeCard = {
     id: PostTypeId;
@@ -22,6 +22,7 @@ const POST_TYPES: PostTypeCard[] = [
     { id: 'proposal', title: 'Start a Proposal', description: 'Launch governance discussion + voting.', icon: '◉', color: '#a855f7', providerOnly: false, route: 'ProposalComposer' },
     { id: 'campaign', title: 'Launch a Campaign', description: 'Organize a collective funding campaign.', icon: '⟡', color: '#84cc16', providerOnly: true, route: 'CollectiveCampaignCreator' },
     { id: 'video', title: 'Share a Video', description: 'Upload a short video to Matrix media.', icon: '▶', color: '#ef4444', providerOnly: false, route: 'VideoUploadFlow' },
+    { id: 'map_event', title: 'Community Alert/Event', description: 'Publish map-based alerts and neighborhood events.', icon: '📍', color: '#0ea5e9', providerOnly: false, route: 'CreateMapEvent' },
 ];
 
 type PostTabProps = {
