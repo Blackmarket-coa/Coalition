@@ -3,8 +3,9 @@ import { Alert, ScrollView, TextInput } from 'react-native';
 import { Button, Paragraph, Text, XStack, YStack } from 'tamagui';
 import { deriveSpatialEventStatus } from '../services/event-timeline';
 import { addOptimisticSpatialFeedItem, getGatewayFeedConfig, type SpatialEventType, type SpatialFeedItem, type SpatialVisibility } from '../services/spatial-feed';
+import { SPATIAL_EVENT_CATEGORIES } from '../services/spatial-taxonomy';
 
-const EVENT_TYPES: SpatialEventType[] = ['community_event', 'aid', 'jobs', 'infrastructure', 'wildfire', 'farm', 'other'];
+const EVENT_TYPES: SpatialEventType[] = [...SPATIAL_EVENT_CATEGORIES.map((category) => category.key), 'aid', 'jobs', 'infrastructure', 'other'];
 const VISIBILITY_OPTIONS: SpatialVisibility[] = ['public', 'community', 'private'];
 
 const toNumber = (value: string, fallback: number) => {

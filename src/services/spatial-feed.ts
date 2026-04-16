@@ -1,8 +1,9 @@
 import { deriveSpatialEventStatus, type SpatialEventStatus } from './event-timeline';
 import { config } from '../utils';
+import { normalizeSpatialLayerKey, normalizeSpatialLayerKeys, SPATIAL_LAYER_KEYS, type SpatialLayerKey } from './spatial-taxonomy';
+export { SPATIAL_LAYER_KEYS, normalizeSpatialLayerKey, normalizeSpatialLayerKeys } from './spatial-taxonomy';
+export type { SpatialLayerKey } from './spatial-taxonomy';
 
-export const SPATIAL_LAYER_KEYS = ['vendors', 'jobs', 'gardens', 'votes', 'aid', 'infra'] as const;
-export type SpatialLayerKey = (typeof SPATIAL_LAYER_KEYS)[number];
 export type SpatialVisibility = 'public' | 'community' | 'private';
 export type SpatialEventType =
     | 'arson'
@@ -54,10 +55,18 @@ export interface SpatialDecryptContext {
 
 type SpatialFeedPayloadItem = Omit<SpatialFeedItem, 'status'> & { status?: SpatialEventStatus };
 
-const normalizeSpatialFeedItem = (item: SpatialFeedPayloadItem): SpatialFeedItem => ({
-    ...item,
-    status: item.status ?? deriveSpatialEventStatus({ startsAt: item.startsAt, endsAt: item.endsAt }),
-});
+const normalizeSpatialFeedItem = (item: SpatialFeedPayloadItem): SpatialFeedItem | null => {
+    const normalizedLayer = normalizeSpatialLayerKey(item.layer);
+    if (!normalizedLayer) {
+        return null;
+    }
+
+    return {
+        ...item,
+        layer: normalizedLayer,
+        status: item.status ?? deriveSpatialEventStatus({ startsAt: item.startsAt, endsAt: item.endsAt }),
+    };
+};
 
 export const maybeDecryptSpatialEnvelope = async (envelope: SpatialEncryptedEnvelope | undefined, context: SpatialDecryptContext): Promise<SpatialDecryptResult> => {
     if (!envelope) {
@@ -210,7 +219,8 @@ const mergeWithOptimisticSpatialItems = (items: SpatialFeedItem[]): SpatialFeedI
 };
 
 export const buildUnifiedSpatialFeedPath = (layers: SpatialLayerKey[]): string => {
-    const layerQuery = layers.length > 0 ? layers.join(',') : SPATIAL_LAYER_KEYS.join(',');
+    const normalizedLayers = normalizeSpatialLayerKeys(layers);
+    const layerQuery = normalizedLayers.length > 0 ? normalizedLayers.join(',') : SPATIAL_LAYER_KEYS.join(',');
     return `/v1/spatial/feed?layers=${encodeURIComponent(layerQuery)}`;
 };
 
@@ -245,7 +255,7 @@ export const getUnifiedSpatialFeed = async (
         return {
             generatedAt: payload.generatedAt ?? new Date().toISOString(),
             bbox: payload.bbox,
-            items: mergeWithOptimisticSpatialItems(Array.isArray(payload.items) ? payload.items.map(normalizeSpatialFeedItem) : []),
+            items: mergeWithOptimisticSpatialItems(Array.isArray(payload.items) ? payload.items.map(normalizeSpatialFeedItem).filter((item): item is SpatialFeedItem => Boolean(item)) : []),
         };
     } catch (error) {
         console.warn('Falling back to local unified spatial feed sample:', error);
