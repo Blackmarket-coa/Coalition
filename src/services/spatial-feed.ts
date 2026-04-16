@@ -178,6 +178,37 @@ const sampleFeed: SpatialFeedItem[] = [
     },
 ];
 
+const optimisticSpatialItems = new Map<string, SpatialFeedItem>();
+const optimisticListeners = new Set<(items: SpatialFeedItem[]) => void>();
+
+const emitOptimisticSpatialItems = () => {
+    const items = [...optimisticSpatialItems.values()];
+    optimisticListeners.forEach((listener) => listener(items));
+};
+
+export const addOptimisticSpatialFeedItem = (item: SpatialFeedItem) => {
+    optimisticSpatialItems.set(item.id, item);
+    emitOptimisticSpatialItems();
+};
+
+export const subscribeOptimisticSpatialFeed = (listener: (items: SpatialFeedItem[]) => void) => {
+    optimisticListeners.add(listener);
+    listener([...optimisticSpatialItems.values()]);
+    return () => {
+        optimisticListeners.delete(listener);
+    };
+};
+
+const mergeWithOptimisticSpatialItems = (items: SpatialFeedItem[]): SpatialFeedItem[] => {
+    const merged = [...optimisticSpatialItems.values()];
+    items.forEach((item) => {
+        if (!optimisticSpatialItems.has(item.id)) {
+            merged.push(item);
+        }
+    });
+    return merged;
+};
+
 export const buildUnifiedSpatialFeedPath = (layers: SpatialLayerKey[]): string => {
     const layerQuery = layers.length > 0 ? layers.join(',') : SPATIAL_LAYER_KEYS.join(',');
     return `/v1/spatial/feed?layers=${encodeURIComponent(layerQuery)}`;
@@ -190,7 +221,7 @@ export const getUnifiedSpatialFeed = async (
     options: UnifiedSpatialFeedRequestOptions = {}
 ): Promise<SpatialFeedResponse> => {
     if (!host) {
-        return { generatedAt: new Date().toISOString(), items: sampleFeed };
+        return { generatedAt: new Date().toISOString(), items: mergeWithOptimisticSpatialItems(sampleFeed) };
     }
 
     const normalizedHost = host.replace(/\/$/, '');
@@ -214,11 +245,11 @@ export const getUnifiedSpatialFeed = async (
         return {
             generatedAt: payload.generatedAt ?? new Date().toISOString(),
             bbox: payload.bbox,
-            items: Array.isArray(payload.items) ? payload.items.map(normalizeSpatialFeedItem) : [],
+            items: mergeWithOptimisticSpatialItems(Array.isArray(payload.items) ? payload.items.map(normalizeSpatialFeedItem) : []),
         };
     } catch (error) {
         console.warn('Falling back to local unified spatial feed sample:', error);
-        return { generatedAt: new Date().toISOString(), items: sampleFeed };
+        return { generatedAt: new Date().toISOString(), items: mergeWithOptimisticSpatialItems(sampleFeed) };
     }
 };
 
