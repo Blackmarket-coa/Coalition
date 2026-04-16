@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Button, Text, XStack, YStack } from 'tamagui';
-import { SPATIAL_LAYER_KEYS, SpatialFeedItem, SpatialLayerKey, getGatewayFeedConfig, getUnifiedSpatialFeed, subscribeOptimisticSpatialFeed } from '../services/spatial-feed';
+import { SpatialFeedItem, getGatewayFeedConfig, getUnifiedSpatialFeed, subscribeOptimisticSpatialFeed } from '../services/spatial-feed';
+import { SPATIAL_LAYER_DEFINITIONS, SPATIAL_LAYER_KEYS, type SpatialLayerKey } from '../services/spatial-taxonomy';
 import { mergeMedusaSpatialMetadata } from '../services/medusa-location';
 
 interface ClusterPoint {
@@ -57,20 +58,19 @@ const TestScreen = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [region, setRegion] = useState(INITIAL_REGION);
     const [feedItems, setFeedItems] = useState<SpatialFeedItem[]>([]);
-    const [activeLayers, setActiveLayers] = useState<Record<SpatialLayerKey, boolean>>({
-        vendors: true,
-        jobs: true,
-        gardens: true,
-        votes: true,
-        aid: true,
-        infra: true,
-    });
+    const [activeLayers, setActiveLayers] = useState<Record<SpatialLayerKey, boolean>>(() =>
+        SPATIAL_LAYER_KEYS.reduce<Record<SpatialLayerKey, boolean>>((state, layer) => {
+            state[layer] = true;
+            return state;
+        }, {} as Record<SpatialLayerKey, boolean>)
+    );
+    const selectedLayers = useMemo(() => SPATIAL_LAYER_KEYS.filter((layer) => activeLayers[layer]), [activeLayers]);
 
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
             const { host, apiKey } = getGatewayFeedConfig();
-            const response = await getUnifiedSpatialFeed(host, apiKey, [...SPATIAL_LAYER_KEYS]);
+            const response = await getUnifiedSpatialFeed(host, apiKey, selectedLayers);
             const enriched = response.items.map((item) => {
                 if (item.layer !== 'vendors') {
                     return item;
@@ -89,7 +89,7 @@ const TestScreen = () => {
         };
 
         load();
-    }, []);
+    }, [selectedLayers]);
 
     useEffect(() => {
         const unsubscribe = subscribeOptimisticSpatialFeed((optimisticItems) => {
@@ -103,7 +103,7 @@ const TestScreen = () => {
         return unsubscribe;
     }, []);
 
-    const visibleItems = useMemo(() => feedItems.filter((item) => activeLayers[item.layer]), [feedItems, activeLayers]);
+    const visibleItems = useMemo(() => feedItems.filter((item) => selectedLayers.includes(item.layer)), [feedItems, selectedLayers]);
     const clusters = useMemo(() => clusterItems(visibleItems, region), [visibleItems, region]);
 
     return (
@@ -113,14 +113,14 @@ const TestScreen = () => {
                     Unified Spatial Feed {isLoading ? '(loading...)' : `(${visibleItems.length} items)`}
                 </Text>
                 <XStack flexWrap='wrap' gap='$2'>
-                    {SPATIAL_LAYER_KEYS.map((layer) => (
+                    {SPATIAL_LAYER_DEFINITIONS.map((layer) => (
                         <Button
-                            key={layer}
+                            key={layer.key}
                             size='$3'
-                            bg={activeLayers[layer] ? '$primary' : '$gray-400'}
-                            onPress={() => setActiveLayers((current) => ({ ...current, [layer]: !current[layer] }))}
+                            bg={activeLayers[layer.key] ? '$primary' : '$gray-400'}
+                            onPress={() => setActiveLayers((current) => ({ ...current, [layer.key]: !current[layer.key] }))}
                         >
-                            <Button.Text color='$white'>{layer}</Button.Text>
+                            <Button.Text color='$white'>{layer.label}</Button.Text>
                         </Button>
                     ))}
                 </XStack>
