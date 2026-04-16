@@ -7,8 +7,16 @@ export type FeedEvent = {
     escalation_stage?: 'local' | 'regional' | 'national';
     escalation_score?: number;
     content: {
+        kind?: 'video' | 'event';
+        category?: string;
+        event_type?: string;
+        status?: 'upcoming' | 'live' | 'past';
+        distance?: number;
+        latitude?: number;
+        longitude?: number;
+        marker_id?: string;
         action_hint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
-        url: string;
+        url?: string;
         room_id?: string;
         body?: string;
         creator_name?: string;
@@ -29,7 +37,9 @@ export type FeedEvent = {
 export type FeedItem = {
     id: string;
     roomId: string;
-    videoUrl: string;
+    kind: 'video' | 'event';
+    videoUrl?: string;
+    category?: string;
     creatorName: string;
     creatorHandle: string;
     creatorAvatar: string | null;
@@ -45,6 +55,12 @@ export type FeedItem = {
     geoScope: 'local' | 'regional' | 'national';
     escalationStage: 'local' | 'regional' | 'national';
     escalationScore: number;
+    eventType?: string;
+    status?: 'upcoming' | 'live' | 'past';
+    distance?: number;
+    latitude?: number;
+    longitude?: number;
+    markerId?: string;
     actionHint?: 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
 };
 
@@ -80,6 +96,7 @@ export type VideoCardItem = {
 };
 
 export type RenderFeedItem = VideoCardItem | CtaCardItem;
+export type FeedTimelineFilter = 'upcoming' | 'live' | 'past';
 
 const ctaDefinitions: Omit<CtaCardItem, 'type' | 'id'>[] = [
     { module: 'shop', title: 'Shop local goods', description: 'Open marketplace offers in your area.' },
@@ -89,13 +106,20 @@ const ctaDefinitions: Omit<CtaCardItem, 'type' | 'id'>[] = [
 ];
 
 export const DEFAULT_ROOM_ID = '!coalition-feed:matrix.org';
+const toOptionalNumber = (value: unknown) => {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(numeric) ? numeric : undefined;
+};
 
 export function toFeedItem(event: FeedEvent): FeedItem {
     const roomId = event.room_id ?? event.content?.room_id ?? DEFAULT_ROOM_ID;
+    const kind = event.content?.kind ?? (event.content?.url ? 'video' : 'event');
     return {
         id: event.event_id,
         roomId,
+        kind,
         videoUrl: event.content?.url,
+        category: event.content?.category,
         creatorName: event.content?.creator_name ?? event.sender,
         creatorHandle: event.content?.creator_handle ?? event.sender,
         creatorAvatar: event.content?.creator_avatar ?? null,
@@ -111,6 +135,12 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         geoScope: event.geo_scope ?? 'local',
         escalationStage: event.escalation_stage ?? event.geo_scope ?? 'local',
         escalationScore: Number(event.escalation_score ?? 0),
+        eventType: event.content?.event_type,
+        status: event.content?.status,
+        distance: toOptionalNumber(event.content?.distance),
+        latitude: toOptionalNumber(event.content?.latitude),
+        longitude: toOptionalNumber(event.content?.longitude),
+        markerId: event.content?.marker_id,
         actionHint: event.content?.action_hint,
     };
 }
@@ -161,6 +191,11 @@ export function injectCtaCards(items: FeedItem[], interval = 4): RenderFeedItem[
     });
 
     return result;
+}
+
+export function isFeedItemInTimeline(item: FeedItem, filter: FeedTimelineFilter) {
+    if (item.kind !== 'event') return true;
+    return item.status === filter;
 }
 
 export function handleCommentAction(item: FeedItem, options: { onOpenChatPanel?: (feedItem: FeedItem) => void; setChatItem: (feedItem: FeedItem) => void; onMissingRoom?: (feedItem: FeedItem) => void }) {
