@@ -4,6 +4,7 @@ import { VerticalVideoFeed } from '@blackstar/ui';
 import { useChat } from '../contexts/ChatContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import useLocationConsent from '../hooks/use-location-consent';
+import { useLocation } from '../contexts/LocationContext';
 import { executeEcosystemAction, EcosystemAction } from '../services/action-router';
 import { trackConversionEvent } from '../services/conversion-analytics';
 import { buildFeedRankingParams, getFeedInterestsFromOnboarding, resolveFeedItemAction } from '../services/discovery-utils';
@@ -67,6 +68,7 @@ const SocialFeedScreen = ({ navigation, route }) => {
     const { channels } = useChat();
     const { locale } = useLanguage();
     const { locationConsent } = useLocationConsent();
+    const { location } = useLocation();
     const { driver } = useAuth();
 
     const onboardingPayload = useMemo(() => loadOnboardingPayload(String(driver?.id ?? 'anon')) ?? {}, [driver]);
@@ -94,6 +96,13 @@ const SocialFeedScreen = ({ navigation, route }) => {
                 ? locationConsent.precision
                 : 'none';
 
+        const hasConsentedLocation =
+            locationConsent.status === 'granted' &&
+            locationConsent.granted &&
+            consentedLocationPrecision !== 'none' &&
+            consentedLocationPrecision !== 'off';
+        const coords = hasConsentedLocation ? location?.coords : undefined;
+
         return buildFeedRankingParams(
             {
                 interests: rankedInterests,
@@ -103,8 +112,11 @@ const SocialFeedScreen = ({ navigation, route }) => {
             },
             rankingSignalParams,
             {
-                consented: locationConsent.status === 'granted' && locationConsent.granted,
+                consented: hasConsentedLocation,
                 precision: consentedLocationPrecision,
+                // LocationContext already applies consent-appropriate rounding/fuzzing.
+                latitude: typeof coords?.latitude === 'number' ? coords.latitude : undefined,
+                longitude: typeof coords?.longitude === 'number' ? coords.longitude : undefined,
             }
         );
     }, [channels, locale, locationConsent, rankedInterests, rankingSignalParams]);

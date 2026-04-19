@@ -13,6 +13,7 @@ import {
     FeedRequestParams,
     FeedTimelineFilter,
     filterVisibleFeedItems,
+    getStageLabel,
     getTrustSignal,
     handleCommentAction,
     injectCtaCards,
@@ -291,8 +292,12 @@ export const VerticalVideoFeed = ({ gatewayBaseUrl, height = SCREEN_HEIGHT, requ
                     />
 
                     <YStack position='absolute' left={12} right={76} bottom={24} bg={solarpunk.panel} borderRadius={22} p='$3' gap='$2'>
+                        {(() => { const { label, isElevated } = getStageLabel(feedItem); return (<XStack alignSelf='flex-start' px='$2' py='$1' borderRadius={999} bg={isElevated ? 'rgba(242,177,52,0.15)' : 'rgba(35,193,107,0.15)'} borderWidth={1} borderColor={isElevated ? solarpunk.accentGold : solarpunk.accentGreen}><Text color={isElevated ? solarpunk.accentGold : solarpunk.accentGreen} fontSize={11} fontWeight='600'>{label}</Text></XStack>); })()}
                         <XStack alignItems='center' gap='$2'><Text color={solarpunk.white} fontWeight='800'>{feedItem.creatorName}</Text><Text color={solarpunk.accentGreen}>@{feedItem.creatorHandle}</Text></XStack>
                         <Pressable onPress={() => setExpandedCaptionId((prev) => (prev === feedItem.id ? null : feedItem.id))}><Paragraph color={solarpunk.white} numberOfLines={isExpanded ? undefined : 3}>{feedItem.caption}</Paragraph></Pressable>
+                        {feedItem.ratingsCount > 0 && (
+                            <Text color={solarpunk.dim} fontSize={11}>Importance {feedItem.importanceAvg.toFixed(1)} · Impact {feedItem.impactAvg.toFixed(1)} · {feedItem.ratingsCount} ratings</Text>
+                        )}
                         <XStack alignSelf='flex-start' px='$2' py='$1' borderRadius={999} bg='rgba(35,193,107,0.2)' borderWidth={1} borderColor={solarpunk.accentGreen}><Text color={solarpunk.accentGreen} fontSize={12}>Blackout Room · {feedItem.roomId}</Text></XStack>
                         <XStack alignItems='center' justifyContent='space-between'>
                             <Text color={solarpunk.dim} fontSize={12}>{getTrustSignal(feedItem)} · {feedItem.reportCount} reports</Text>

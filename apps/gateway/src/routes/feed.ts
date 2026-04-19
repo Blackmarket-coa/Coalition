@@ -36,12 +36,26 @@ const querySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).optional().default(12),
 });
 
+const ratingBodySchema = z.object({
+    content_id: z.string().min(1).max(128),
+    dimension: z.enum(['importance', 'impact']),
+    rating_value: z.coerce.number().min(1).max(5),
+    user_id: z.string().min(1).max(128),
+    lifecycle_id: z.string().optional(),
+    update_index: z.coerce.number().int().min(0).optional(),
+});
+
 interface FeedEntry {
     id: string;
     kind: 'video' | 'event';
     language: string;
     room_id: string;
     tags: string[];
+    origin: {
+        latitude: number;
+        longitude: number;
+        region_code: string;
+    };
     content: {
         url: string;
         thumbnail_url: string;
@@ -85,6 +99,7 @@ const baseFeed: FeedEntry[] = [
         language: 'en',
         room_id: '!aid:coalition.local',
         tags: ['mutual aid', 'climate', 'community safety'],
+        origin: { latitude: 47.6062, longitude: -122.3321, region_code: 'us-wa' },
         content: {
             url: 'https://cdn.coalition.local/feed/vid_climate_001.mp4',
             thumbnail_url: 'https://cdn.coalition.local/feed/vid_climate_001.jpg',
@@ -103,6 +118,7 @@ const baseFeed: FeedEntry[] = [
         language: 'en',
         room_id: '!jobs:coalition.local',
         tags: ['jobs', 'transport', 'delivery'],
+        origin: { latitude: 47.5951, longitude: -122.3317, region_code: 'us-wa' },
         content: {
             url: 'https://cdn.coalition.local/feed/vid_jobs_002.mp4',
             thumbnail_url: 'https://cdn.coalition.local/feed/vid_jobs_002.jpg',
@@ -121,6 +137,7 @@ const baseFeed: FeedEntry[] = [
         language: 'en',
         room_id: '!garden:coalition.local',
         tags: ['food', 'gardens', 'mutual aid'],
+        origin: { latitude: 37.8044, longitude: -122.2712, region_code: 'us-ca' },
         content: {
             url: 'https://cdn.coalition.local/feed/evt_garden_003.mp4',
             thumbnail_url: 'https://cdn.coalition.local/feed/evt_garden_003.jpg',
@@ -139,6 +156,7 @@ const baseFeed: FeedEntry[] = [
         language: 'es',
         room_id: '!mercado:coalition.local',
         tags: ['market', 'food', 'co-op'],
+        origin: { latitude: 34.0522, longitude: -118.2437, region_code: 'us-ca' },
         content: {
             url: 'https://cdn.coalition.local/feed/vid_market_004.mp4',
             thumbnail_url: 'https://cdn.coalition.local/feed/vid_market_004.jpg',
@@ -152,6 +170,103 @@ const baseFeed: FeedEntry[] = [
         moderation: { anomaly_score: 0.11 },
     },
 ];
+
+// In-memory ratings store: contentId → dimension → userId → rating value.
+// Not persisted across restarts; last write per (content, dimension, user) wins.
+const ratingsStore = new Map<string, Map<string, Map<string, number>>>();
+
+const storeRating = (contentId: string, dimension: string, userId: string, value: number) => {
+    if (!ratingsStore.has(contentId)) ratingsStore.set(contentId, new Map());
+    const byDim = ratingsStore.get(contentId)!;
+    if (!byDim.has(dimension)) byDim.set(dimension, new Map());
+    byDim.get(dimension)!.set(userId, value);
+};
+
+const getLiveRatings = (contentId: string) => {
+    const byDim = ratingsStore.get(contentId);
+    const importanceVals = byDim ? [...(byDim.get('importance')?.values() ?? [])] : [];
+    const impactVals = byDim ? [...(byDim.get('impact')?.values() ?? [])] : [];
+    const uniqueUsers = new Set([
+        ...(byDim?.get('importance')?.keys() ?? []),
+        ...(byDim?.get('impact')?.keys() ?? []),
+    ]);
+    const avg = (vals: number[]) => (vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null);
+    return {
+        importance_avg: avg(importanceVals),
+        impact_avg: avg(impactVals),
+        unique_raters: uniqueUsers.size,
+        ratings_count: importanceVals.length + impactVals.length,
+    };
+};
+
+const applyLiveRatings = (entry: FeedEntry): FeedEntry => {
+    const live = getLiveRatings(entry.id);
+    if (live.unique_raters === 0) return entry;
+    return {
+        ...entry,
+        ranking: {
+            ...entry.ranking,
+            importance: live.importance_avg ?? entry.ranking.importance,
+            social_impact: live.impact_avg ?? entry.ranking.social_impact,
+        },
+        rating_stats: {
+            ...entry.rating_stats,
+            unique_raters: live.unique_raters,
+        },
+    };
+};
+
+const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const LOCAL_RADIUS_KM = 25;
+const REGIONAL_RADIUS_KM = 250;
+
+interface UserScopeContext {
+    latitude?: number;
+    longitude?: number;
+    regionCode?: string;
+    joinedRooms: Set<string>;
+    interests: string[];
+}
+
+const matchesInterestOrRoom = (entry: FeedEntry, user: UserScopeContext): boolean => {
+    if (user.joinedRooms.has(entry.room_id)) return true;
+    const tags = entry.tags.map((t) => t.toLowerCase());
+    return user.interests.some((interest) => tags.some((tag) => tag.includes(interest) || interest.includes(tag)));
+};
+
+const withinUserScope = (entry: FeedEntry, stage: FeedEscalationStage, user: UserScopeContext): boolean => {
+    if (stage === 'national') return true;
+
+    const hasUserLocation = typeof user.latitude === 'number' && typeof user.longitude === 'number';
+
+    if (!hasUserLocation) {
+        // No location consent: deliver national-escalated content + joined-room/interest matches.
+        return matchesInterestOrRoom(entry, user);
+    }
+
+    const distKm = haversineKm(user.latitude!, user.longitude!, entry.origin.latitude, entry.origin.longitude);
+
+    if (stage === 'local') return distKm <= LOCAL_RADIUS_KM;
+
+    // regional: within radius OR same region code
+    if (distKm <= REGIONAL_RADIUS_KM) return true;
+    if (user.regionCode && user.regionCode.toLowerCase() === entry.origin.region_code.toLowerCase()) return true;
+    return false;
+};
+
+const distanceDecayBoost = (entry: FeedEntry, userLat?: number, userLon?: number): number => {
+    if (typeof userLat !== 'number' || typeof userLon !== 'number') return 0;
+    const distKm = haversineKm(userLat, userLon, entry.origin.latitude, entry.origin.longitude);
+    return Math.max(0, 0.15 * (1 - distKm / 300));
+};
 
 const normalizeImportanceSignal = (parsed: z.infer<typeof querySchema>): number =>
     parsed.importance_signal ?? parsed.importance_score ?? 0;
@@ -232,8 +347,8 @@ const computeStageTransition = (item: FeedEntry, nowMs: number) => {
     return { geoScope: selected.geoScope, stage: selected.stage, score, timelineSignals };
 };
 
-const mapEntry = (item: FeedEntry, nowMs: number): GatewayFeedEvent => {
-    const escalation = computeStageTransition(item, nowMs);
+const mapEntry = (item: FeedEntry, escalation: ReturnType<typeof computeStageTransition>): GatewayFeedEvent => {
+    const live = getLiveRatings(item.id);
     return {
         id: item.id,
         room_id: item.room_id,
@@ -259,6 +374,12 @@ const mapEntry = (item: FeedEntry, nowMs: number): GatewayFeedEvent => {
             engagement: item.ranking.engagement,
             published_at: item.ranking.published_at,
         },
+        rating_stats: {
+            unique_raters: live.unique_raters || item.rating_stats.unique_raters,
+            importance_avg: live.importance_avg ?? item.ranking.importance,
+            impact_avg: live.impact_avg ?? item.ranking.social_impact,
+        },
+        origin: item.origin,
         tags: item.tags,
         language: item.language,
         geo_scope: escalation.geoScope,
@@ -269,6 +390,18 @@ const mapEntry = (item: FeedEntry, nowMs: number): GatewayFeedEvent => {
 
 export const createFeedRouter = () => {
     const router = new Hono();
+
+    router.post('/api/v1/feed/ratings', async (c) => {
+        try {
+            const body = await c.req.json();
+            const parsed = ratingBodySchema.parse(body);
+            storeRating(parsed.content_id, parsed.dimension, parsed.user_id, parsed.rating_value);
+            return c.json({ accepted: true, content_id: parsed.content_id, dimension: parsed.dimension }, 200);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Invalid rating payload';
+            return c.json({ error: message }, 400);
+        }
+    });
 
     router.get('/api/v1/feed', (c) => {
         try {
@@ -299,6 +432,14 @@ export const createFeedRouter = () => {
             const precision = parsed.consented_location_precision;
             const locationContext = parsed.location_context ?? ((precision === 'precise' || precision === 'approximate') ? 'consented' : 'non_location_fallback');
 
+            const userScope: UserScopeContext = {
+                latitude: parsed.location_latitude,
+                longitude: parsed.location_longitude,
+                regionCode: parsed.location_region_code,
+                joinedRooms,
+                interests,
+            };
+
             const requestSignals = {
                 importanceSignal: normalizeImportanceSignal(parsed),
                 impactSignal: normalizeImpactSignal(parsed),
@@ -315,13 +456,24 @@ export const createFeedRouter = () => {
 
             const languageFiltered = interestFiltered.filter((item) => item.language.toLowerCase() === language || language.startsWith(item.language.toLowerCase()));
 
-            const roomBoosted = languageFiltered.map((item) => {
+            // Merge community ratings into ranking before scoring and escalation.
+            const nowMs = Date.now();
+            const ratedEntries = languageFiltered.map(applyLiveRatings);
+
+            // Compute escalation stage and apply location-scoped delivery.
+            const scopedEntries = ratedEntries.filter((entry) => {
+                const escalation = computeStageTransition(entry, nowMs);
+                return withinUserScope(entry, escalation.stage, userScope);
+            });
+
+            const roomBoosted = scopedEntries.map((item) => {
                 const joinedRoomBoost = joinedRooms.has(item.room_id) ? 0.25 : 0;
                 const precisionBoost = precision === 'precise' ? 0.2 : precision === 'approximate' ? 0.1 : 0;
                 const locationSignalBoost = locationContext === 'consented' && typeof parsed.location_latitude === 'number' && typeof parsed.location_longitude === 'number' ? 0.08 : 0;
+                const proximityBoost = distanceDecayBoost(item, parsed.location_latitude, parsed.location_longitude);
                 return {
                     item,
-                    score: computeRankingScore(item, requestSignals) + joinedRoomBoost + precisionBoost + locationSignalBoost,
+                    score: computeRankingScore(item, requestSignals) + joinedRoomBoost + precisionBoost + locationSignalBoost + proximityBoost,
                 };
             });
 
@@ -342,7 +494,6 @@ export const createFeedRouter = () => {
 
             const selected = roomBoosted.slice(0, parsed.limit).map((entry) => entry.item);
 
-            const nowMs = Date.now();
             const response: GatewayFeedResponse = {
                 ranking_model: parsed.ranking_model,
                 signals_applied: {
@@ -353,9 +504,10 @@ export const createFeedRouter = () => {
                     community_ratings_count: parsed.community_ratings_count ?? 0,
                     consented_location_precision: precision,
                     location_context: locationContext,
+                    ratings_ingested: ratingsStore.size,
                 },
-                videos: selected.filter((item) => item.kind === 'video').map((item) => mapEntry(item, nowMs)),
-                events: selected.filter((item) => item.kind === 'event').map((item) => mapEntry(item, nowMs)),
+                videos: selected.filter((item) => item.kind === 'video').map((item) => mapEntry(item, computeStageTransition(item, nowMs))),
+                events: selected.filter((item) => item.kind === 'event').map((item) => mapEntry(item, computeStageTransition(item, nowMs))),
             };
 
             return c.json(response);
