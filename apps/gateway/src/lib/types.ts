@@ -198,6 +198,16 @@ export interface GatewayFeedEvent {
         engagement: number;
         published_at: string;
     };
+    rating_stats: {
+        unique_raters: number;
+        importance_avg: number;
+        impact_avg: number;
+    };
+    origin: {
+        latitude: number;
+        longitude: number;
+        region_code: string;
+    };
     tags: string[];
     language: string;
     geo_scope: FeedGeoScope;
@@ -215,6 +225,7 @@ export interface GatewayFeedResponse {
         community_ratings_count: number;
         consented_location_precision: 'off' | 'none' | 'approximate' | 'precise';
         location_context: 'consented' | 'non_location_fallback';
+        ratings_ingested: number;
     };
     videos: GatewayFeedEvent[];
     events: GatewayFeedEvent[];

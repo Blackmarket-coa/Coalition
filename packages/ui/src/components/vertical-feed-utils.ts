@@ -1,12 +1,13 @@
 export type FeedEvent = {
-    event_id: string;
+    // Matrix event format
+    event_id?: string;
     room_id?: string;
-    sender: string;
+    sender?: string;
     visibility?: 'public' | 'private' | 'blocked';
     geo_scope?: 'local' | 'regional' | 'national';
     escalation_stage?: 'local' | 'regional' | 'national';
     escalation_score?: number;
-    content: {
+    content?: {
         kind?: 'video' | 'event';
         category?: string;
         event_type?: string;
@@ -32,6 +33,12 @@ export type FeedEvent = {
         ratings_count?: number;
     };
     engagement_score?: number;
+    // Gateway response format (GatewayFeedEvent fields)
+    id?: string;
+    counts?: { likes?: number; comments?: number; shares?: number; views?: number };
+    ranking?: { importance?: number; social_impact?: number; engagement?: number; published_at?: string };
+    rating_stats?: { unique_raters?: number; importance_avg?: number; impact_avg?: number };
+    origin?: { latitude: number; longitude: number; region_code: string };
 };
 
 export type FeedItem = {
@@ -55,6 +62,7 @@ export type FeedItem = {
     geoScope: 'local' | 'regional' | 'national';
     escalationStage: 'local' | 'regional' | 'national';
     escalationScore: number;
+    origin?: { latitude: number; longitude: number; region_code: string };
     eventType?: string;
     status?: 'upcoming' | 'live' | 'past';
     distance?: number;
@@ -114,27 +122,31 @@ const toOptionalNumber = (value: unknown) => {
 export function toFeedItem(event: FeedEvent): FeedItem {
     const roomId = event.room_id ?? event.content?.room_id ?? DEFAULT_ROOM_ID;
     const kind = event.content?.kind ?? (event.content?.url ? 'video' : 'event');
+    const sender = event.sender ?? '';
     return {
-        id: event.event_id,
+        id: event.event_id ?? event.id ?? '',
         roomId,
         kind,
         videoUrl: event.content?.url,
         category: event.content?.category,
-        creatorName: event.content?.creator_name ?? event.sender,
-        creatorHandle: event.content?.creator_handle ?? event.sender,
+        creatorName: event.content?.creator_name ?? sender,
+        creatorHandle: event.content?.creator_handle ?? sender,
         creatorAvatar: event.content?.creator_avatar ?? null,
-        likeCount: Number(event.content?.like_count ?? 0),
-        commentCount: Number(event.content?.comment_count ?? 0),
+        // Fall back to gateway top-level counts when not present in content block.
+        likeCount: Number(event.content?.like_count ?? event.counts?.likes ?? 0),
+        commentCount: Number(event.content?.comment_count ?? event.counts?.comments ?? 0),
         caption: event.content?.caption ?? event.content?.body ?? '',
         visibility: event.visibility ?? 'public',
         trustScore: Number(event.content?.trust_score ?? 50),
         reportCount: Number(event.content?.report_count ?? 0),
-        importanceAvg: Number(event.content?.importance_avg ?? 0),
-        impactAvg: Number(event.content?.impact_avg ?? 0),
-        ratingsCount: Number(event.content?.ratings_count ?? 0),
+        // Prefer rating_stats (live aggregates) over static content fields over ranking base values.
+        importanceAvg: Number(event.rating_stats?.importance_avg ?? event.content?.importance_avg ?? event.ranking?.importance ?? 0),
+        impactAvg: Number(event.rating_stats?.impact_avg ?? event.content?.impact_avg ?? event.ranking?.social_impact ?? 0),
+        ratingsCount: Number(event.content?.ratings_count ?? event.rating_stats?.unique_raters ?? 0),
         geoScope: event.geo_scope ?? 'local',
         escalationStage: event.escalation_stage ?? event.geo_scope ?? 'local',
         escalationScore: Number(event.escalation_score ?? 0),
+        origin: event.origin,
         eventType: event.content?.event_type,
         status: event.content?.status,
         distance: toOptionalNumber(event.content?.distance),
@@ -143,6 +155,12 @@ export function toFeedItem(event: FeedEvent): FeedItem {
         markerId: event.content?.marker_id,
         actionHint: event.content?.action_hint,
     };
+}
+
+export function getStageLabel(item: FeedItem): { label: string; isElevated: boolean } {
+    if (item.escalationStage === 'national') return { label: 'National report', isElevated: true };
+    if (item.escalationStage === 'regional') return { label: 'Escalating \u2191 Regional', isElevated: true };
+    return { label: 'Local report', isElevated: false };
 }
 
 export function filterVisibleFeedItems(items: FeedItem[], options: { hideReportedThreshold?: number } = {}) {
