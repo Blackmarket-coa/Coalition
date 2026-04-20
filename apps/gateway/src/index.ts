@@ -5,6 +5,7 @@ import { createFreeBlackMarketWebhookRouter } from './routes/free-black-market-w
 import { createProviderProfileRouter } from './routes/provider-profile';
 import { createSpatialGovernanceRouter } from './routes/spatial-governance';
 import { createFeedRouter } from './routes/feed';
+import { createBazaarCatalogRouter } from './routes/bazaar-catalog';
 
 const app = new Hono();
 
@@ -14,6 +15,7 @@ app.route('/', createFreeBlackMarketWebhookRouter());
 app.route('/', createProviderProfileRouter());
 app.route('/', createSpatialGovernanceRouter());
 app.route('/', createFeedRouter());
+app.route('/', createBazaarCatalogRouter());
 
 serve({
     fetch: app.fetch,

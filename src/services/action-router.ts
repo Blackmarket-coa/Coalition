@@ -1,9 +1,11 @@
 import { claimGatewayJob } from './blackstar-gateway';
 import { trackConversionEvent } from './conversion-analytics';
 import { logErrorCategory } from './error-logging';
-import { isCoalitionActionRouterEnabled } from './feature-flags';
+import { isCoalitionActionRouterEnabled, isCoalitionBazaarEnabled } from './feature-flags';
 
-export type EcosystemActionType = 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID';
+export type EcosystemActionType = 'SHOP_ITEM' | 'POST_OFFERING' | 'APPLY_JOB' | 'JOIN_ROOM' | 'OPEN_PROPOSAL' | 'REQUEST_AID' | 'BROWSE_BAZAAR';
+
+export type BazaarKind = 'plugin' | 'emoji_pack' | 'meme_pack' | 'stego' | 'software' | 'other';
 
 export type EcosystemAction =
     | { type: 'SHOP_ITEM'; payload?: { itemId?: string } }
@@ -11,7 +13,8 @@ export type EcosystemAction =
     | { type: 'APPLY_JOB'; payload: { jobId: string; providerId: string } }
     | { type: 'JOIN_ROOM'; payload: { roomId: string } }
     | { type: 'OPEN_PROPOSAL'; payload?: { proposalId?: string } }
-    | { type: 'REQUEST_AID'; payload?: { aidType?: string } };
+    | { type: 'REQUEST_AID'; payload?: { aidType?: string } }
+    | { type: 'BROWSE_BAZAAR'; payload?: { kind?: BazaarKind; itemId?: string } };
 
 export interface ActionRouterContext {
     navigate: (routeName: string, params?: Record<string, any>) => void;
@@ -22,7 +25,7 @@ export interface ActionRouterContext {
 
 
 function executeLegacyFallback(action: EcosystemAction, context: ActionRouterContext) {
-    if (action.type === 'SHOP_ITEM' || action.type === 'POST_OFFERING') {
+    if (action.type === 'SHOP_ITEM' || action.type === 'POST_OFFERING' || action.type === 'BROWSE_BAZAAR') {
         context.navigate('Feed', { screen: 'PostTab' });
         return { ok: true, module: 'legacy-fallback' };
     }
@@ -75,6 +78,16 @@ export async function executeEcosystemAction(action: EcosystemAction, context: A
                 context.trackRecentBehavior?.('REQUEST_AID');
                 trackConversionEvent('action_routed', { action: action.type, module: 'Aid' });
                 return { ok: true, module: 'Aid' };
+            case 'BROWSE_BAZAAR':
+                if (!isCoalitionBazaarEnabled()) {
+                    context.navigate('Feed', { screen: 'PostTab', params: { action: 'shop' } });
+                    trackConversionEvent('action_routed', { action: action.type, module: 'legacy-fallback' });
+                    return { ok: true, module: 'legacy-fallback' };
+                }
+                context.navigate('Feed', { screen: 'BazaarHome', params: { kind: action.payload?.kind, itemId: action.payload?.itemId } });
+                context.trackRecentBehavior?.('BROWSE_BAZAAR');
+                trackConversionEvent('action_routed', { action: action.type, module: 'bazaar' });
+                return { ok: true, module: 'bazaar' };
             default:
                 context.onUnhandled?.(action, 'Unknown action type');
                 trackConversionEvent('action_failed', { action: action.type, reason: 'UNRESOLVED_ACTION' });

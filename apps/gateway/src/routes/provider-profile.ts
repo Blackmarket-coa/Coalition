@@ -5,11 +5,26 @@ import { BlackstarApiClient } from '../services/blackstar-api-client';
 
 const roleValues = ['Grower', 'Maker', 'Mover', 'Healer', 'Teacher', 'Builder', 'Organizer'] as const;
 
+const digitalKindValues = ['plugin', 'emoji_pack', 'meme_pack', 'stego', 'software', 'other'] as const;
+const digitalDeliveryValues = ['file', 'unlock', 'manifest'] as const;
+const digitalLicenseValues = ['standard', 'extended', 'cc0'] as const;
+
+const digitalMetadataSchema = z.object({
+    is_digital: z.literal(true),
+    digital_kind: z.enum(digitalKindValues),
+    delivery: z.object({
+        type: z.enum(digitalDeliveryValues),
+        asset_ref: z.string().optional(),
+    }),
+    license: z.enum(digitalLicenseValues).default('standard'),
+});
+
 const offeringSchema = z.object({
     name: z.string().min(1),
     description: z.string().min(1),
     pricing_mode: z.enum(['price', 'time_bank', 'free', 'sliding_scale']),
     price: z.number().optional(),
+    digital: digitalMetadataSchema.optional(),
 });
 
 const payloadSchema = z.object({

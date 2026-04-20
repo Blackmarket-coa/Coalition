@@ -67,6 +67,7 @@ These environment flags control staged rollout and rollback behavior:
 - `COALITION_ONBOARDING_ENABLED` (default `true`): toggles social onboarding flow.
 - `COALITION_FEED_RANKING_ENABLED` (default `true`): toggles ranked feed request model params.
 - `COALITION_ACTION_ROUTER_ENABLED` (default `true`): toggles unified ecosystem action routing (with safe fallbacks).
+- `COALITION_BAZAAR_ENABLED` (default `false`): toggles the digital marketplace (plugins, emoji/meme packs, software) exposed via `/api/v1/bazaar/catalog` and the `BROWSE_BAZAAR` action. Falls back to the legacy `PostTab` marketplace when off.
 
 See `docs/COALITION_SOCIAL_MIGRATION_ROLLOUT.md` for staged rollout and rollback playbook.
 
