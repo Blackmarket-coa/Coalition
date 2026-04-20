@@ -6,6 +6,8 @@ import { createProviderProfileRouter } from './routes/provider-profile';
 import { createSpatialGovernanceRouter } from './routes/spatial-governance';
 import { createFeedRouter } from './routes/feed';
 import { createBazaarCatalogRouter } from './routes/bazaar-catalog';
+import { createCheckoutRouter } from './routes/checkout';
+import { createStripeWebhookRouter } from './routes/stripe-webhook';
 
 const app = new Hono();
 
@@ -16,6 +18,8 @@ app.route('/', createProviderProfileRouter());
 app.route('/', createSpatialGovernanceRouter());
 app.route('/', createFeedRouter());
 app.route('/', createBazaarCatalogRouter());
+app.route('/', createCheckoutRouter());
+app.route('/', createStripeWebhookRouter());
 
 serve({
     fetch: app.fetch,

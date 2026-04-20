@@ -1,4 +1,5 @@
 export * from './AuthContext';
+export * from './CartContext';
 export * from './ChatContext';
 export * from './ConfigContext';
 export * from './GovernanceContext';

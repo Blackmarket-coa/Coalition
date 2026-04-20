@@ -298,7 +298,15 @@ BLACKOUT_MATRIX_SERVICE_TOKEN=
 DATABASE_URL=postgresql://user:pass@host:port/dbname
 REDIS_URL=redis://127.0.0.1:6379
 PORT=8787
+
+# Bazaar / Stripe (digital marketplace checkout)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_CONNECT_CLIENT_ID=
+COALITION_PLATFORM_FEE_BPS=1000
 ```
+
+The Bazaar checkout endpoints (`/api/v1/bazaar/checkout/{one-off,subscription,tip}`) use Stripe Connect Express — each seller has a connected account and receives `total - application_fee` via `transfer_data.destination`. The `COALITION_PLATFORM_FEE_BPS` (basis points, default `1000` = 10%) controls the platform's cut; tips always pass through at zero fee. The webhook at `/api/v1/bazaar/stripe-webhook` grants entitlements on `payment_intent.succeeded` and refreshes them on `customer.subscription.*` via the `entitlements` Medusa module.
 
 ## Running the App
 
