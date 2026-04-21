@@ -3,7 +3,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Button, Paragraph, Text, XStack, YStack } from 'tamagui';
 
-export type PostTypeId = 'offering' | 'mutual_aid' | 'job' | 'proposal' | 'campaign' | 'video' | 'map_event';
+export type PostTypeId = 'offering' | 'digital' | 'mutual_aid' | 'job' | 'proposal' | 'campaign' | 'video' | 'map_event';
 
 export type PostTypeCard = {
     id: PostTypeId;
@@ -17,6 +17,7 @@ export type PostTypeCard = {
 
 const POST_TYPES: PostTypeCard[] = [
     { id: 'offering', title: 'List an Offering', description: 'Products or services in your local economy.', icon: '✶', color: '#22c55e', providerOnly: true, route: 'OfferingComposer' },
+    { id: 'digital', title: 'List a Digital Product', description: 'Plugins, emoji packs, memes, software, and other downloads.', icon: '◆', color: '#8b5cf6', providerOnly: true, route: 'DigitalOfferingComposer' },
     { id: 'mutual_aid', title: 'Mutual Aid', description: 'Post a need or offer support nearby.', icon: '✳', color: '#06b6d4', providerOnly: false, route: 'AidPostCreator' },
     { id: 'job', title: 'Post a Job', description: 'Create a shipment board listing.', icon: '⬡', color: '#f59e0b', providerOnly: true, route: 'ShipmentBoardListingCreator' },
     { id: 'proposal', title: 'Start a Proposal', description: 'Launch governance discussion + voting.', icon: '◉', color: '#a855f7', providerOnly: false, route: 'ProposalComposer' },

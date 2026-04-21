@@ -4,6 +4,7 @@ jest.mock('../src/services/blackstar-gateway', () => ({
 
 jest.mock('../src/services/feature-flags', () => ({
     isCoalitionActionRouterEnabled: jest.fn(() => true),
+    isCoalitionBazaarEnabled: jest.fn(() => true),
 }));
 
 import { executeEcosystemAction } from '../src/services/action-router';
@@ -34,6 +35,27 @@ describe('ActionRouter integration', () => {
         expect(result.ok).toBe(true);
         expect(joinRoom).toHaveBeenCalledWith('#coalition:matrix.org');
         expect(navigate).toHaveBeenCalledWith('Messages', { screen: 'ChatHome' });
+    });
+
+    test('routes BROWSE_BAZAAR to the Bazaar home when the flag is on', async () => {
+        const navigate = jest.fn();
+        const result = await executeEcosystemAction({ type: 'BROWSE_BAZAAR', payload: { kind: 'plugin' } }, { navigate });
+
+        expect(result.ok).toBe(true);
+        expect(result.module).toBe('bazaar');
+        expect(navigate).toHaveBeenCalledWith('Feed', { screen: 'BazaarHome', params: { kind: 'plugin', itemId: undefined } });
+    });
+
+    test('falls back to legacy PostTab when Bazaar flag is off', async () => {
+        const flags = require('../src/services/feature-flags');
+        flags.isCoalitionBazaarEnabled.mockReturnValueOnce(false);
+
+        const navigate = jest.fn();
+        const result = await executeEcosystemAction({ type: 'BROWSE_BAZAAR' }, { navigate });
+
+        expect(result.ok).toBe(true);
+        expect(result.module).toBe('legacy-fallback');
+        expect(navigate).toHaveBeenCalledWith('Feed', { screen: 'PostTab', params: { action: 'shop' } });
     });
 
     test('returns meaningful fallback for unresolved adapters', async () => {

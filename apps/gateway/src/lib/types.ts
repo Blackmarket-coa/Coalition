@@ -1,6 +1,38 @@
 export type SpatialLayer = 'market' | 'jobs' | 'govern' | 'aid';
 
-export type EntityType = 'seller' | 'product' | 'garden' | 'kitchen' | 'producer';
+export type EntityType = 'seller' | 'product' | 'garden' | 'kitchen' | 'producer' | 'digital_product';
+
+export type DigitalKind = 'plugin' | 'emoji_pack' | 'meme_pack' | 'stego' | 'software' | 'other';
+
+export type DigitalDeliveryType = 'file' | 'unlock' | 'manifest';
+
+export type DigitalLicense = 'standard' | 'extended' | 'cc0';
+
+export interface DigitalOfferingMetadata {
+    is_digital: true;
+    digital_kind: DigitalKind;
+    delivery: {
+        type: DigitalDeliveryType;
+        asset_ref?: string;
+    };
+    license: DigitalLicense;
+}
+
+export interface DigitalProductRecord {
+    id: string;
+    title: string;
+    description: string | null;
+    handle: string | null;
+    thumbnail: string | null;
+    seller_id: string | null;
+    seller_handle: string | null;
+    price_cents: number | null;
+    currency_code: string | null;
+    digital_kind: DigitalKind;
+    delivery_type: DigitalDeliveryType;
+    license: DigitalLicense;
+    rating: number | null;
+}
 
 export interface BBox {
     west: number;

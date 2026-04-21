@@ -67,6 +67,20 @@ These environment flags control staged rollout and rollback behavior:
 - `COALITION_ONBOARDING_ENABLED` (default `true`): toggles social onboarding flow.
 - `COALITION_FEED_RANKING_ENABLED` (default `true`): toggles ranked feed request model params.
 - `COALITION_ACTION_ROUTER_ENABLED` (default `true`): toggles unified ecosystem action routing (with safe fallbacks).
+- `COALITION_BAZAAR_ENABLED` (default `false`): toggles the digital marketplace (plugins, emoji/meme packs, software) exposed via `/api/v1/bazaar/catalog` and the `BROWSE_BAZAAR` action. Falls back to the legacy `PostTab` marketplace when off.
+
+#### Bazaar gateway configuration
+
+The Bazaar marketplace uses the following environment variables on the gateway:
+
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID` — checkout + creator payouts via Stripe Connect Express.
+- `COALITION_PLATFORM_FEE_BPS` (default `1000`, i.e. 10%) — platform fee on one-off and subscription purchases.
+- `BAZAAR_ASSET_SIGNING_SECRET`, `BAZAAR_ASSET_CDN_URL`, `BAZAAR_ASSET_TTL_SECONDS` (default `900`) — HMAC-SHA256 signed download URLs for digital files.
+- `BAZAAR_MANIFEST_SIGNING_SECRET` — HMAC signing secret for declarative plugin manifests served to the Coalition plugin registry.
+- `BLACKOUT_HOMESERVER_URL`, `BLACKOUT_MATRIX_SERVICE_TOKEN` — used by the unlock adapter to write `im.ponies.user_emotes` account data for emoji/meme packs.
+- `FBM_API_URL`, `FBM_API_TOKEN` — outbound catalog sync endpoint on Free Black Market.
+- `MEDUSA_FBM_SYNC_TOKEN` (optional) — shared secret required on `POST /api/v1/bazaar/fbm-sync` when Medusa emits `product.created` / `product.updated`.
+- `COALITION_MODERATION_ADMIN_TOKEN` (optional) — required on `GET /api/v1/bazaar/reports` and `POST /api/v1/bazaar/moderation/quarantine`.
 
 See `docs/COALITION_SOCIAL_MIGRATION_ROLLOUT.md` for staged rollout and rollback playbook.
 
@@ -297,7 +311,15 @@ BLACKOUT_MATRIX_SERVICE_TOKEN=
 DATABASE_URL=postgresql://user:pass@host:port/dbname
 REDIS_URL=redis://127.0.0.1:6379
 PORT=8787
+
+# Bazaar / Stripe (digital marketplace checkout)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_CONNECT_CLIENT_ID=
+COALITION_PLATFORM_FEE_BPS=1000
 ```
+
+The Bazaar checkout endpoints (`/api/v1/bazaar/checkout/{one-off,subscription,tip}`) use Stripe Connect Express — each seller has a connected account and receives `total - application_fee` via `transfer_data.destination`. The `COALITION_PLATFORM_FEE_BPS` (basis points, default `1000` = 10%) controls the platform's cut; tips always pass through at zero fee. The webhook at `/api/v1/bazaar/stripe-webhook` grants entitlements on `payment_intent.succeeded` and refreshes them on `customer.subscription.*` via the `entitlements` Medusa module.
 
 ## Running the App
 
