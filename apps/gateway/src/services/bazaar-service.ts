@@ -67,6 +67,21 @@ export interface BazaarQuery {
     q?: string;
 }
 
+export interface DigitalProductDetail extends DigitalProductRecord {
+    metadata: Record<string, unknown>;
+    asset_ref?: string;
+    matrix_pack_id?: string;
+    matrix_shortcodes?: Record<string, string>;
+    matrix_display_name?: string;
+    manifest?: Record<string, unknown>;
+    moderation_state: 'approved' | 'pending' | 'quarantined';
+}
+
+const asModerationState = (value: unknown): 'approved' | 'pending' | 'quarantined' => {
+    if (value === 'pending' || value === 'quarantined') return value;
+    return 'approved';
+};
+
 export class BazaarService {
     private readonly medusa: MedusaClientLike;
 
@@ -91,8 +106,38 @@ export class BazaarService {
 
         return products
             .filter((product) => isDigital(product.metadata ?? null))
+            .filter((product) => asModerationState((product.metadata ?? {}).moderation_state) !== 'quarantined')
             .map(toRecord)
             .filter((record) => (query.kind ? record.digital_kind === query.kind : true))
             .filter((record) => (query.license ? record.license === query.license : true));
+    }
+
+    async getDigitalProduct(productId: string): Promise<DigitalProductDetail | null> {
+        const params = new URLSearchParams({ fields: '+metadata,+variants.calculated_price,+seller.handle' });
+        const res = await this.medusa.client.fetch<{ product?: MedusaProductWithMetadata }>(
+            `/store/products/${encodeURIComponent(productId)}?${params.toString()}`
+        );
+        const product = res?.product;
+        if (!product || !isDigital(product.metadata ?? null)) {
+            return null;
+        }
+
+        const metadata = (product.metadata ?? {}) as Record<string, unknown>;
+        const delivery = (metadata.delivery ?? {}) as Record<string, unknown>;
+        const emojiPack = (metadata.emoji_pack ?? {}) as Record<string, unknown>;
+
+        return {
+            ...toRecord(product),
+            metadata,
+            asset_ref: typeof delivery.asset_ref === 'string' ? (delivery.asset_ref as string) : undefined,
+            matrix_pack_id: typeof emojiPack.pack_id === 'string' ? (emojiPack.pack_id as string) : undefined,
+            matrix_shortcodes:
+                emojiPack.shortcodes && typeof emojiPack.shortcodes === 'object'
+                    ? (emojiPack.shortcodes as Record<string, string>)
+                    : undefined,
+            matrix_display_name: typeof emojiPack.display_name === 'string' ? (emojiPack.display_name as string) : undefined,
+            manifest: metadata.manifest && typeof metadata.manifest === 'object' ? (metadata.manifest as Record<string, unknown>) : undefined,
+            moderation_state: asModerationState(metadata.moderation_state),
+        };
     }
 }

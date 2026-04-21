@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import type Stripe from 'stripe';
 import { createStripeClient, loadStripeConfig } from '../services/stripe-client';
 import { EntitlementClient, type EntitlementSource } from '../services/entitlement-client';
+import { BazaarService } from '../services/bazaar-service';
+import { applyMatrixUnlock } from '../services/digital-delivery/matrix-unlock-delivery';
 
 type SourceMetadata = 'one_off' | 'subscription' | 'tip' | 'free';
 
@@ -23,7 +25,7 @@ const metadataNumber = (metadata: Stripe.Metadata | null | undefined, key: strin
     return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const handlePaymentIntentSucceeded = async (intent: Stripe.PaymentIntent, client: EntitlementClient) => {
+const handlePaymentIntentSucceeded = async (intent: Stripe.PaymentIntent, client: EntitlementClient, bazaar: BazaarService | null) => {
     const userId = metadataString(intent.metadata, 'user_id');
     const productId = metadataString(intent.metadata, 'product_id');
     if (!userId || !productId) {
@@ -43,6 +45,26 @@ const handlePaymentIntentSucceeded = async (intent: Stripe.PaymentIntent, client
         amount_cents: intent.amount_received ?? intent.amount,
         expires_at: null,
     });
+
+    if (source === 'tip' || !bazaar) return;
+
+    const matrixUserId = metadataString(intent.metadata, 'matrix_user_id');
+    if (!matrixUserId) return;
+
+    try {
+        const product = await bazaar.getDigitalProduct(productId);
+        if (product && product.delivery_type === 'unlock' && product.matrix_pack_id && product.matrix_shortcodes) {
+            await applyMatrixUnlock({
+                userId: matrixUserId,
+                packId: product.matrix_pack_id,
+                shortcodes: product.matrix_shortcodes,
+                displayName: product.matrix_display_name,
+            });
+        }
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        console.warn('[bazaar][webhook] matrix unlock auto-apply failed', { productId, message });
+    }
 };
 
 const handleSubscriptionUpdated = async (subscription: Stripe.Subscription, client: EntitlementClient) => {
@@ -83,6 +105,7 @@ export const createStripeWebhookRouter = () => {
     }
 
     const entitlements = new EntitlementClient(medusaBackendUrl, process.env.MEDUSA_PUBLISHABLE_KEY, process.env.MEDUSA_ADMIN_TOKEN);
+    const bazaar = new BazaarService(medusaBackendUrl, process.env.MEDUSA_PUBLISHABLE_KEY);
 
     router.post('/api/v1/bazaar/stripe-webhook', async (c) => {
         const signature = c.req.header('stripe-signature');
@@ -105,7 +128,7 @@ export const createStripeWebhookRouter = () => {
         try {
             switch (event.type) {
                 case 'payment_intent.succeeded':
-                    await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent, entitlements);
+                    await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent, entitlements, bazaar);
                     break;
                 case 'customer.subscription.created':
                 case 'customer.subscription.updated':

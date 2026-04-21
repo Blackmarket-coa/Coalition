@@ -79,4 +79,14 @@ export class EntitlementClient {
             },
         });
     }
+
+    async getByIdForUser(id: string, userId: string) {
+        const query = new URLSearchParams({ user_id: userId });
+        const res = await this.medusa.client.fetch<{ entitlements?: Array<Record<string, unknown>> }>(
+            `/store/entitlements?${query.toString()}`
+        );
+        const rows = res?.entitlements ?? [];
+        const row = rows.find((entry) => (entry as { id?: string }).id === id);
+        return row ?? null;
+    }
 }

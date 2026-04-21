@@ -8,6 +8,9 @@ import { createFeedRouter } from './routes/feed';
 import { createBazaarCatalogRouter } from './routes/bazaar-catalog';
 import { createCheckoutRouter } from './routes/checkout';
 import { createStripeWebhookRouter } from './routes/stripe-webhook';
+import { createBazaarDeliveryRouter } from './routes/bazaar-delivery';
+import { createFbmSyncRouter } from './routes/fbm-sync';
+import { createBazaarModerationRouter } from './routes/bazaar-moderation';
 
 const app = new Hono();
 
@@ -20,6 +23,9 @@ app.route('/', createFeedRouter());
 app.route('/', createBazaarCatalogRouter());
 app.route('/', createCheckoutRouter());
 app.route('/', createStripeWebhookRouter());
+app.route('/', createBazaarDeliveryRouter());
+app.route('/', createFbmSyncRouter());
+app.route('/', createBazaarModerationRouter());
 
 serve({
     fetch: app.fetch,
